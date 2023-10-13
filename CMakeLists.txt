@@ -1,0 +1,30 @@
+cmake_minimum_required(VERSION 3.4.3)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+project(dummy)
+
+function(create_project)
+    CMAKE_PARSE_ARGUMENTS(ARG "" "TARGET" "SOURCES;DEPENDENCIES;PACKAGES;EXTRA_LANGUAGES" ${ARGN})
+
+    project(${ARG_TARGET} LANGUAGES C CXX ${ARG_EXTRA_LANGUAGES})
+
+    foreach(pkg ${ARG_PACKAGES})
+        find_package(${pkg} REQUIRED)
+    endforeach()
+
+    foreach(src ${ARG_SOURCES})
+        add_executable("${ARG_TARGET}" "${src}")
+    endforeach()
+
+    if (ARG_DEPENDENCIES)
+        target_link_libraries("${ARG_TARGET}" PRIVATE ${ARG_DEPENDENCIES})
+    endif()
+endfunction()
+
+#########################################
+
+
+add_subdirectory(microbenchmarks)
