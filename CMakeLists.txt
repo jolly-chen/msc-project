@@ -27,6 +27,12 @@ function(create_project)
 endfunction()
 
 #########################################
+find_package(ROOT REQUIRED)
+
+create_project(TARGET generate_ntuple
+               SOURCES generate_ntuple.C
+               DEPENDENCIES ROOT::ROOTNTuple ROOT::Gpad ROOT::Core ROOT::MathCore)
 
 
+add_subdirectory(cpu-sequential)
 add_subdirectory(microbenchmarks)
