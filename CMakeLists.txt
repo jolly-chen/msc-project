@@ -27,7 +27,7 @@ function(create_project)
 endfunction()
 
 #########################################
-find_package(ROOT REQUIRED)
+find_package(ROOT REQUIRED PATHS ${ROOT_DIR})
 
 create_project(TARGET generate_ntuple
                SOURCES generate_ntuple.C

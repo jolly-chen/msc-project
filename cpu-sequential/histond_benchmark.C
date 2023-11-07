@@ -15,17 +15,18 @@ int main(int argc, char **argv)
 {
    size_t bulkSize = -1;
    int nbins = -1;
-   unsigned long long nvals = -1;
    bool verbose = false;
+   bool edges = false;
    char *file;
 
    int c;
-   while ((c = getopt(argc, argv, "b:h:f:v")) != -1) {
+   while ((c = getopt(argc, argv, "b:h:f:ve")) != -1) {
       switch (c) {
       case 'b': bulkSize = std::stoul(optarg); break;
       case 'h': nbins = atoi(optarg); break;
       case 'f': file = optarg; break;
-   case 'v': verbose = true; break;
+      case 'v': verbose = true; break;
+      case 'e': edges = true; break;
       default: std::cout << "Ignoring unknown parse returns: " << char(c) << std::endl;
       }
    }
@@ -37,7 +38,7 @@ int main(int argc, char **argv)
 
    TCanvas *cv;
    if (verbose) {
-      printf("Bulksize: %lu Bins: %d File: %s\n", bulkSize, nbins, file);
+      printf("Bulksize: %lu Bins: %d File: %s Edges: %d\n", bulkSize, nbins, file, edges);
       cv = new TCanvas("c", "", 200, 10, 700, 500);
    }
 
@@ -45,7 +46,16 @@ int main(int argc, char **argv)
 
    auto pageSource = ROOT::Experimental::Detail::RPageSource::Create("Data", file);
    auto df = ROOT::RDataFrame(std::make_unique<ROOT::Experimental::RNTupleDS>(std::move(pageSource)), {}, bulkSize);
-   auto mdl = ROOT::RDF::TH1DModel("h1", "h1", nbins, 0, 1);
+
+   ROOT::RDF::TH1DModel mdl;
+   if (edges) {
+      std::vector<double> e(nbins + 1);
+      for (int i = 0; i <= nbins; i++)
+         e[i] = i * 1./nbins;
+      mdl = ROOT::RDF::TH1DModel("h1", "h1", nbins, e.data());
+   } else {
+      mdl = ROOT::RDF::TH1DModel("h1", "h1", nbins, 0, 1);
+   }
 
    auto start = Clock::now();
    auto h1 = df.Histo1D<double>(mdl, "Doubles");
@@ -58,9 +68,8 @@ int main(int argc, char **argv)
       // free(cv);
    }
 
-#if not defined(TIME_FILL) && not defined(TIME_STATS) && not defined (TIME_FINDBIN)
-   printf("%f\n", std::chrono::duration_cast<fsecs>(end - start).count());
-#endif
+   printf("total:%f\n", std::chrono::duration_cast<fsecs>(end - start).count());
+
 
    return 0;
 }
