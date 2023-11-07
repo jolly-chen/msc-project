@@ -34,7 +34,7 @@ using RNTupleWriter = ROOT::Experimental::RNTupleWriter;
 
 std::string kNTupleFileName;
 
-void Generate(size_t n)
+void Generate(size_t n, std::string mode, char *argv[])
 {
    // We create a unique pointer to an empty data model
    auto model = RNTupleModel::Create();
@@ -50,9 +50,33 @@ void Generate(size_t n)
    auto ntuple = RNTupleWriter::Recreate(std::move(model), "Data", kNTupleFileName);
 
    TRandom3 r(0);
-   for (size_t i = 0; i < n; i++) {
-      *fldVals = r.Rndm();
-      ntuple->Fill();
+   if (mode == "uniform") {
+      for (size_t i = 0; i < n; i++) {
+         *fldVals = r.Rndm();
+         ntuple->Fill();
+      }
+   } else if (mode == "normal") {
+      for (size_t i = 0; i < n; i++) {
+         *fldVals = r.Gaus(0.5, 0.5);
+         ntuple->Fill();
+      }
+   } else if (mode == "constant") {
+      for (size_t i = 0; i < n; i++) {
+         *fldVals = 0.5;
+         ntuple->Fill();
+      }
+   } else if (mode == "strided") {
+      auto stride = atol(argv[0]);
+      auto nbins = atol(argv[1]);
+
+      // double val = 0;
+      // for (size_t i = 0; i < n; i++) {
+      //    *fldVals = val;
+      //    ntuple->Fill();
+      //    val += (1/nbins * stride) %
+      // }
+   } else {
+      printf("Mode %s unknown!\n", mode.c_str());
    }
 }
 
@@ -79,7 +103,6 @@ void Analyze()
    h.SetFillColor(48);
 
    for (auto entryId : *ntuple) {
-      // Populate fldAge
       ntuple->LoadEntry(entryId);
       h.Fill(*fldVals);
    }
@@ -89,27 +112,33 @@ void Analyze()
 }
 
 // root macro
-void generate_ntuple(size_t n)
+void generate_ntuple(size_t n, std::string mode, char *argv[])
 {
    std::ostringstream ss;
-   ss << "input/doubles_" << n << ".root";
+   ss << "input/doubles_" << mode.c_str() << "_" << n << ".root";
    kNTupleFileName = ss.str();
-   Generate(n);
+
+   printf("Generating %s...\n", kNTupleFileName.c_str());
+
+   Generate(n, mode, argv);
    Analyze();
 }
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
    size_t n = 1e6;
-   if (argc >= 2) {
-      n = atoll(argv[1]);
+   std::string mode = "uniform";
+
+   int c;
+   while ((c = getopt(argc, argv, "n:m:")) != -1) {
+      switch (c) {
+      case 'n': n = atol(optarg); break;
+      case 'm': mode = optarg; break;
+      default: std::cout << "Ignoring unknown parse returns: " << char(c) << std::endl;
+      }
    }
 
-   std::ostringstream ss;
-   ss << "input/doubles_" << n << ".root";
-   kNTupleFileName = ss.str();
-   printf("Generating %s...\n", kNTupleFileName.c_str());
+   generate_ntuple(n, mode, argc > 5 ? &argv[5] : NULL);
 
-   Generate(n);
    return 0;
 }
