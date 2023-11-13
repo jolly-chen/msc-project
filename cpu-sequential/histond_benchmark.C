@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 
    TCanvas *cv;
    if (verbose) {
-      printf("Bulksize: %lu Bins: %d File: %s Edges: %d\n", bulkSize, nbins, file, edges);
+      printf("Bulksize: %lu Bins: %d File: %s\n", bulkSize, nbins, file);
       cv = new TCanvas("c", "", 200, 10, 700, 500);
    }
 
@@ -51,7 +51,15 @@ int main(int argc, char **argv)
    if (edges) {
       std::vector<double> e(nbins + 1);
       for (int i = 0; i <= nbins; i++)
-         e[i] = i * 1./nbins;
+         e[i] = i * 1. / nbins;
+
+      if (verbose) {
+         printf("Edges:\n");
+         for (int i = 0; i < e.size(); i++) {
+            printf("%f ", e[i]);
+         }
+         printf("\n");
+      }
       mdl = ROOT::RDF::TH1DModel("h1", "h1", nbins, e.data());
    } else {
       mdl = ROOT::RDF::TH1DModel("h1", "h1", nbins, 0, 1);
@@ -69,7 +77,6 @@ int main(int argc, char **argv)
    }
 
    printf("total:%f\n", std::chrono::duration_cast<fsecs>(end - start).count());
-
 
    return 0;
 }
