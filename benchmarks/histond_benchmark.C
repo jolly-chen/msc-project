@@ -5,7 +5,8 @@
 #include <ROOT/RLogger.hxx>
 #include "TCanvas.h"
 
-#include <benchmark/benchmark.h>
+// #include <benchmark/benchmark.h>
+// #include <likwid-marker.h>
 
 // this increases RDF's verbosity level as long as the `verbosity` variable is in scope
 // auto verbosity =
@@ -55,7 +56,7 @@ int main(int argc, char **argv)
 
       if (verbose) {
          printf("Edges:\n");
-         for (int i = 0; i < e.size(); i++) {
+         for (size_t i = 0; i < e.size(); i++) {
             printf("%f ", e[i]);
          }
          printf("\n");
@@ -65,6 +66,9 @@ int main(int argc, char **argv)
       mdl = ROOT::RDF::TH1DModel("h1", "h1", nbins, 0, 1);
    }
 
+   // LIKWID_MARKER_REGISTER("mfilln");
+
+   // LIKWID_MARKER_INIT;
    auto start = Clock::now();
    auto h1 = df.Histo1D<double>(mdl, "Doubles");
    h1.GetValue();
@@ -75,6 +79,7 @@ int main(int argc, char **argv)
       cv->SaveAs("test.png");
       // free(cv);
    }
+   // LIKWID_MARKER_CLOSE;
 
    printf("total:%f\n", std::chrono::duration_cast<fsecs>(end - start).count());
 

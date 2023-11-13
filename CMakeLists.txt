@@ -34,5 +34,5 @@ create_project(TARGET generate_ntuple
                DEPENDENCIES ROOT::ROOTNTuple ROOT::Gpad ROOT::Core ROOT::MathCore)
 
 
-add_subdirectory(cpu-sequential)
+add_subdirectory(benchmarks)
 add_subdirectory(microbenchmarks)

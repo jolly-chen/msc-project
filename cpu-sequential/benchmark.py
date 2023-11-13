@@ -24,7 +24,7 @@ def run_benchmark(f, n, environs, bulksizes, nbins, nvals, output_file=""):
                     for nbi, nb in enumerate(nbins):
                         for nvi, nv in enumerate(nvals):
                             input_file = f"../input/doubles_uniform_{nv}.root"
-                            arg = f"-b{b} -h{nb} -f{input_file} -e"
+                            arg = f"-b{b} -h{nb} -f{input_file}"
                             print(arg)
 
                             r = subprocess.run([f, *arg.split()],
@@ -42,7 +42,7 @@ def run_benchmark(f, n, environs, bulksizes, nbins, nvals, output_file=""):
 if __name__ == "__main__":
     environs = [
    	"CPU",
-#        "CUDA_HIST",
+    "CUDA_HIST",
         # "SYCL_HIST",
     ]
 
@@ -50,13 +50,13 @@ if __name__ == "__main__":
     nbins = [
         1,
         2,
-        # 5,
-        # 10,
-        # 20,
-        # 50,
-        # 100,
-        # 500,
-        # 1000,
+        5,
+        10,
+        20,
+        50,
+        100,
+        500,
+        1000,
         # 5000,
         # 10000,
         # 50000,
@@ -65,13 +65,13 @@ if __name__ == "__main__":
     bulksizes = [
         1,
         2,
-        # 4,
-        # 8,
-        # 16,
-        # 32,
-        # 64,
-        # 128,
-        # 256,
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256,
         # 512,
         # 1024,
         # 2048,
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     ]
 
     nvals = [
-        1,
+        # 1,
         # 10,
         # 100,
         # 1000,         # 1K
@@ -94,12 +94,12 @@ if __name__ == "__main__":
         # 1000000,      # 1M
         # 10000000,     # 10M
         # 100000000,    # 100M
-        # 500000000,    # 500M
+        500000000,    # 500M
         # 1000000000,   # 1B
         # 5000000000,   # 5B
         # 10000000000,  # 10B
     ]
-    f = "./histond_benchmark"
+    f = "../benchmarks/histond_benchmark"
     if len(sys.argv) > 1:
         output_file = sys.argv[1]
     else:
