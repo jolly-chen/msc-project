@@ -4,12 +4,13 @@
 #include <random>
 
 using Clock = std::chrono::steady_clock;
-using fmsecs = std::chrono::duration<double, std::chrono::milliseconds::period>;
+using fsecs = std::chrono::duration<double>;
+constexpr int repetitions = 1e4;
 
 //______________________________________________________________________________
 //
 // Calibration of Model 1.1
-//______________________________________________________________________________
+//______________________________________________________________________________Me!
 
 static void BM_UpdateStats(benchmark::State &state)
 {
@@ -22,18 +23,20 @@ static void BM_UpdateStats(benchmark::State &state)
          coords.emplace_back(rand());
 
       auto start = Clock::now();
-      sumw += w;
-      sumw2 += w * w;
-      for (auto ci = 0U; ci < coords.size(); ci++) {
-         sumwc += w * coords[ci];
-         sumwc2 += w * coords[ci] * coords[ci];
-         for (auto cpi = 0U; cpi < ci; cpi++) {
-            sumccp += w * coords[ci] * coords[cpi];
+      for (int i = 0; i < repetitions; i++) {
+         sumw += w;
+         sumw2 += w * w;
+         for (auto ci = 0U; ci < coords.size(); ci++) {
+            sumwc += w * coords[ci];
+            sumwc2 += w * coords[ci] * coords[ci];
+            for (auto cpi = 0U; cpi < ci; cpi++) {
+               sumccp += w * coords[ci] * coords[cpi];
+            }
          }
       }
       auto end = Clock::now();
 
-      auto elapsed_seconds = std::chrono::duration_cast<fmsecs>(end - start);
+      auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
       state.SetIterationTime(elapsed_seconds.count());
    }
 }
@@ -58,57 +61,137 @@ inline long long BinarySearch(long long n, const T *array, T value)
       return (pind - array - 1);
 }
 
+int nbins = 1024;
+int multiplier = 32;
 static void BM_BinarySearch(benchmark::State &state)
 {
    long long bin;
-   auto nbins = state.range(0);
+   int n = state.range(0);
 
-   // Setup assumes binedges is in the cache and the val is in the register.
-   std::default_random_engine generator;
-   std::uniform_real_distribution<double> distribution(0.0, nbins);
+   // Setup assumes binedges is in the cache and the val is in thel register.
    std::vector<double> binedges;
    for (auto i = 0; i < nbins; i++)
       binedges.emplace_back(i);
    auto a_binedges = binedges.data();
 
    for (auto _ : state) {
-      double val = distribution(generator);
-
       auto start = Clock::now();
-      bin = BinarySearch(nbins, a_binedges, val);
+      for (long i = 0; i < repetitions; i++) {
+         bin = BinarySearch(nbins, a_binedges, double(i % n));
+      }
       auto end = Clock::now();
 
-      auto elapsed_seconds = std::chrono::duration_cast<fmsecs>(end - start);
+      auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
       state.SetIterationTime(elapsed_seconds.count());
       static_cast<void>(bin); // prevent unused warnings
    }
 }
-BENCHMARK(BM_BinarySearch)->RangeMultiplier(2)->Range(2, 2 << 16)->UseManualTime()->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_BinarySearch)->DenseRange(1, nbins, step)->UseManualTime()->Unit(benchmark::kMillisecond);
+// BENCHMARK(BM_BinarySearch)->Range(1, nbins)->RangeMultiplier(multiplier)->UseManualTime()->Unit(benchmark::kMillisecond);
 
-static void BM_Histogram(benchmark::State &state)
+int step = 32;
+static void BM_BinarySearchStrided(benchmark::State &state)
 {
-   auto nbins = state.range(0);
-   auto histogram = (double *)malloc(nbins * sizeof(double));
+   long long bin;
+   int stride = state.range(0);
 
-   std::default_random_engine generator;
-   std::uniform_int_distribution<> distribution(0, nbins - 1);
+   // Setup assumes binedges is in the cache and the val is in thel register.
+   std::vector<double> binedges;
+   for (auto i = 0; i < nbins; i++)
+      binedges.emplace_back(i);
+   auto a_binedges = binedges.data();
 
    for (auto _ : state) {
-      auto bin = distribution(generator);
-
       auto start = Clock::now();
-      histogram[bin] += 1.0;
+      for (long i = 0; i < repetitions; i++) {
+         bin = BinarySearch(nbins, a_binedges, double((i * stride) % nbins));
+      }
       auto end = Clock::now();
 
-      auto elapsed_seconds = std::chrono::duration_cast<fmsecs>(end - start);
+      auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
       state.SetIterationTime(elapsed_seconds.count());
+      static_cast<void>(bin); // prevent unused warnings
    }
-
-   free(histogram);
 }
+BENCHMARK(BM_BinarySearchStrided)->DenseRange(1, nbins, step)->UseManualTime()->Unit(benchmark::kMillisecond);
+// BENCHMARK(BM_BinarySearchStrided)->Range(1, nbins)->RangeMultiplier(multiplier)->UseManualTime()->Unit(benchmark::kMillisecond);
 
-// BENCHMARK(BM_Histogram)->RangeMultiplier(2)->Range(2, 2 << 16)->UseManualTime()->Unit(benchmark::kMillisecond);
-BENCHMARK(BM_Histogram)->DenseRange(1, 32, 1)->UseManualTime()->Unit(benchmark::kMillisecond);
+// static void BM_Histogram_BestCase(benchmark::State &state)
+// {
+//    auto nbins = state.range(0);
+//    auto histogram = (double *)malloc(nbins * sizeof(double));
 
+//    for (auto _ : state) {
+//       auto bin = 0;
+
+//       auto start = Clock::now();
+//       for (int i = 0; i < repetitions; i++)
+//          histogram[bin] += 1.0;
+//       auto end = Clock::now();
+
+//       auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
+//       state.SetIterationTime(elapsed_seconds.count());
+//    }
+
+//    free(histogram);
+// }
+
+// BENCHMARK(BM_Histogram_BestCase)->RangeMultiplier(2)->Range(2, 2 << 8)->UseManualTime()->Unit(benchmark::kMillisecond);
+
+// static void BM_Histogram_AverageCase(benchmark::State &state)
+// {
+//    auto nbins = state.range(0);
+//    auto histogram = (double *)malloc(nbins * sizeof(double));
+
+//    std::default_random_engine generator;
+//    std::uniform_int_distribution<> distribution(0, nbins - 1);
+
+//    for (auto _ : state) {
+//       auto bin = distribution(generator);
+
+//       auto start = Clock::now();
+//       histogram[bin] += 1.0;
+//       auto end = Clock::now();
+
+//       auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
+//       state.SetIterationTime(elapsed_seconds.count());
+//    }
+
+//    free(histogram);
+// }
+
+// BENCHMARK(BM_Histogram_AverageCase)->RangeMultiplier(2)->Range(2, 2 <<
+// 16)->UseManualTime()->Unit(benchmark::kMillisecond); BENCHMARK(BM_Histogram_AverageCase)->DenseRange(1, 32,
+// 1)->UseManualTime()->Unit(benchmark::kMillisecond);
+
+// static void BM_Histogram_WorstCase(benchmark::State &state)
+// {
+//    auto nbins = state.range(0);
+//    auto histogram = (double *)malloc(nbins * sizeof(double));
+//    auto stride = 8;
+//    int bin = 0;
+
+//    // Load the maximum amount into the L1 cache
+//    for (int i = 0; i < nbins; i++) {
+//       histogram[bin] += 1.0;
+//    }
+
+//    for (auto _ : state) {
+//       bin = (bin + stride) % nbins;
+//       printf("stride: %d\n", bin);
+//       auto start = Clock::now();
+//       // for (int i = 0; i < repetitions; i++) {
+//       histogram[bin] += 1.0;
+//       // }
+//       auto end = Clock::now();
+
+//       auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
+//       state.SetIterationTime(elapsed_seconds.count());
+//    }
+
+//    free(histogram);
+// }
+
+// BENCHMARK(BM_Histogram_WorstCase)->RangeMultiplier(2)->Range(2, 2 << 8)->UseManualTime()->Unit(benchmark::kMicrosecond);
 
 BENCHMARK_MAIN();

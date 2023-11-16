@@ -2,7 +2,8 @@
 create_project(TARGET cpu-microbenchmarks
                SOURCES cpu-microbenchmarks.cpp
                PACKAGES benchmark
-               DEPENDENCIES benchmark::benchmark benchmark::benchmark_main)
+               DEPENDENCIES benchmark::benchmark benchmark::benchmark_main pfm)
+# target_link_libraries(cpu-microbenchmarks PUBLIC pfm)
 
 enable_language(CUDA)
 create_project(TARGET gpu-microbenchmarks

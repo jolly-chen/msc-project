@@ -5,6 +5,7 @@ set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CUDA_ARCHITECTURES 75)
 list(APPEND CMAKE_CXX_FLAGS -Wall)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
 
 project(dummy)
 
@@ -27,6 +28,8 @@ function(create_project)
 endfunction()
 
 #########################################
+
+find_package(PFM REQUIRED)
 find_package(ROOT REQUIRED PATHS ${ROOT_DIR})
 
 create_project(TARGET generate_ntuple
