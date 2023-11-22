@@ -63,6 +63,7 @@ inline long long BinarySearch(long long n, const T *array, T value)
 
 int nbins = 1024;
 int multiplier = 32;
+int step = 32;
 static void BM_BinarySearch(benchmark::State &state)
 {
    long long bin;
@@ -89,7 +90,6 @@ static void BM_BinarySearch(benchmark::State &state)
 BENCHMARK(BM_BinarySearch)->DenseRange(1, nbins, step)->UseManualTime()->Unit(benchmark::kMillisecond);
 // BENCHMARK(BM_BinarySearch)->Range(1, nbins)->RangeMultiplier(multiplier)->UseManualTime()->Unit(benchmark::kMillisecond);
 
-int step = 32;
 static void BM_BinarySearchStrided(benchmark::State &state)
 {
    long long bin;
