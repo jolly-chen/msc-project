@@ -29,7 +29,8 @@ endfunction()
 
 #########################################
 
-find_package(PFM REQUIRED)
+set(ROOT_DIR $ENV{ROOTSYS})
+# find_package(PFM REQUIRED)
 find_package(ROOT REQUIRED PATHS ${ROOT_DIR})
 
 create_project(TARGET generate_ntuple
