@@ -30,7 +30,7 @@ endfunction()
 #########################################
 
 set(ROOT_DIR $ENV{ROOTSYS})
-find_package(PFM REQUIRED)
+# find_package(PFM REQUIRED)
 find_package(ROOT REQUIRED PATHS ${ROOT_DIR})
 
 create_project(TARGET generate_ntuple
@@ -38,6 +38,5 @@ create_project(TARGET generate_ntuple
                DEPENDENCIES ROOT::ROOTNTuple ROOT::Gpad ROOT::Core ROOT::MathCore)
 
 
-add_subdirectory(cpu-sequential)
-add_subdirectory(gpu-synchronous)
+add_subdirectory(benchmarks)
 add_subdirectory(microbenchmarks)
