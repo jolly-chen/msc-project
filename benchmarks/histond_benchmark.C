@@ -97,9 +97,7 @@ int main(int argc, char **argv)
 
    // To check the result
    std::ostringstream os;
-   os << "input/expected/";
-   os << std::filesystem::path(file).stem().string() << "_h" << nbins << "_e" << (edges ? "1" : "0");
-   //  << ".out";
+   os << std::filesystem::path(file).stem().string() << "_h" << nbins << "_e" << (edges ? "1" : "0") << ".out";
 
    std::ofstream expected;
    expected.open(os.str());
