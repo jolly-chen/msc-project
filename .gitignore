@@ -9,3 +9,10 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 _deps
+*ninja*
+.gdb_history
+.vscode
+.ipynb_checkpoints
+out
+perf.data
+perf.data.old

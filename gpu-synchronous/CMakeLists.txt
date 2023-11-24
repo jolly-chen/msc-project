@@ -5,7 +5,6 @@ create_project(TARGET histond_benchmark_gpu
                DEPENDENCIES ROOT::ROOTDataFrame ROOT::ROOTNTuple ROOT::MathCore ROOT::Core ROOT::CUDAHist
                             benchmark::benchmark benchmark::benchmark_main)
 
-# target_compile_definitions(histond_benchmark_gpu PUBLIC ROOT_RDF_CUDA TIME_FILL TIME_STATSset TIME_FINDBIN)
 target_compile_definitions(histond_benchmark_gpu PUBLIC ROOT_RDF_CUDA)
 target_include_directories(histond_benchmark_gpu PUBLIC ${ROOT_DIR}/include)
 # target_compile_definitions(histond_benchmark_gpu PUBLIC ROOT_RDF_CUDA LIKWID_PERFMON)
@@ -21,5 +20,5 @@ create_project(TARGET histond_benchmark_gpu_timing
                PACKAGES benchmark
                DEPENDENCIES ROOT::ROOTDataFrame ROOT::ROOTNTuple ROOT::MathCore ROOT::Core ROOT::CUDAHist
                             benchmark::benchmark benchmark::benchmark_main)
-target_compile_definitions(histond_benchmark_gpu_timing PUBLIC ROOT_RDF_CUDA TIME_FILL TIME_STATS TIME_FINDBIN)
+target_compile_definitions(histond_benchmark_gpu_timing PUBLIC ROOT_RDF_CUDA)
 target_include_directories(histond_benchmark_gpu_timing PUBLIC ${ROOT_DIR}/include)

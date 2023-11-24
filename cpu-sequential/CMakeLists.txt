@@ -20,5 +20,4 @@ create_project(TARGET histond_benchmark_cpu_timing
                PACKAGES benchmark
                DEPENDENCIES ROOT::ROOTDataFrame ROOT::ROOTNTuple ROOT::MathCore ROOT::Core
                             benchmark::benchmark benchmark::benchmark_main)
-target_compile_definitions(histond_benchmark_cpu_timing PUBLIC TIME_FILL TIME_STATS TIME_FINDBIN)
 target_include_directories(histond_benchmark_cpu_timing PUBLIC ${ROOT_DIR}/include)
