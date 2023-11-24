@@ -25,8 +25,8 @@ def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file="")
                         for nipf, ipf in enumerate(input_files):
                             for edges in ["", "-e"]:
                                 input_file = f"{input_folder}/{ipf}"
-                                stem = Path(ipf).stem()
-                                arg = f"-b{b} -h{nb} -f{input_file}"
+                                stem = Path(ipf).stem
+                                arg = f"-b{b} -h{nb} -f{input_file} {edges}"
                                 print(arg)
 
                                 r = subprocess.run(
@@ -36,6 +36,13 @@ def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file="")
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.DEVNULL,
                                 )
+
+                                output = r.stdout.decode("utf-8").strip().split("\n")
+                                times = [o.split(":")[1] for o in output]
+                                file_handler.write(
+                                    f"{iter},{e},{nb},{b},{stem},{'True' if edges != '' else 'False'},{','.join(times)}\n"
+                                )
+                                file_handler.flush()
 
                                 if iter == 0:
                                     subprocess.run(
@@ -47,12 +54,6 @@ def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file="")
                                         check=True,
                                     )
 
-                                output = r.stdout.decode("utf-8").strip().split("\n")
-                                times = [o.split(":")[1] for o in output]
-                                file_handler.write(
-                                    f"{iter},{e},{nb},{b},{stem},{'True' if edges != '' else 'False'},{','.join(times)}\n"
-                                )
-                                file_handler.flush()
 
 
 if __name__ == "__main__":
