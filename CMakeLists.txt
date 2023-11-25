@@ -3,8 +3,9 @@ cmake_minimum_required(VERSION 3.4.3)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_ARCHITECTURES 75)
-list(APPEND CMAKE_CXX_FLAGS -Wall)
+add_compile_options(-Wall -Wextra -Wpedantic)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
 
 project(dummy)
@@ -30,7 +31,13 @@ endfunction()
 #########################################
 
 set(ROOT_DIR $ENV{ROOTSYS})
-# find_package(PFM REQUIRED)
+if (pfm)
+    find_package(PFM REQUIRED)
+endif()
+if (adaptivecpp)
+    find_package(AdaptiveCpp REQUIRED)
+endif()
+
 find_package(ROOT REQUIRED PATHS ${ROOT_DIR})
 
 create_project(TARGET generate_ntuple
