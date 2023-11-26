@@ -21,8 +21,8 @@ def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file="")
         for iter in tqdm(range(n)):
             for ei, e in tqdm(enumerate(environs), leave=False):
                 for bi, b in tqdm(enumerate(bulksizes), leave=False):
-                    for nbi, nb in enumerate(nbins):
-                        for nipf, ipf in enumerate(input_files):
+                    for nbi, nb in tqdm(enumerate(nbins), leave=False):
+                        for nipf, ipf in tqdm(enumerate(input_files), leave=False):
                             for edges in ["", "-e"]:
                                 input_file = f"{input_folder}/{ipf}"
                                 stem = Path(ipf).stem
@@ -53,7 +53,6 @@ def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file="")
                                         ],
                                         check=True,
                                     )
-
 
 
 if __name__ == "__main__":

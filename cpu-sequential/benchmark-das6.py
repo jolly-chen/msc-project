@@ -35,21 +35,22 @@ def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file="")
                                     shell=True,
                                 )
 
-                                subprocess.run(
-                                    [
-                                        "mv",
-                                        f"{stem}_h{nb}_e{'1' if edges != '' else '0'}.out",
-                                        f"{input_folder}/expected/{stem}_h{nb}_e{'1' if edges != '' else '0'}",
-                                    ],
-                                    check=True,
-                                )
-
                                 output = r.stdout.decode("utf-8").strip().split("\n")
                                 times = [o.split(":")[1] for o in output]
                                 file_handler.write(
                                     f"{iter},{e},{nb},{b},{stem},{'True' if edges != '' else 'False'},{','.join(times)}\n"
                                 )
                                 file_handler.flush()
+
+                                if iter == 0 and bi == 0:
+                                    subprocess.run(
+                                        [
+                                            "mv",
+                                            f"{stem}_h{nb}_e{'1' if edges != '' else '0'}.out",
+                                            f"{input_folder}/expected/{stem}_h{nb}_e{'1' if edges != '' else '0'}",
+                                        ],
+                                        check=True,
+                                    )
 
 
 if __name__ == "__main__":
@@ -111,7 +112,7 @@ if __name__ == "__main__":
 
     output_folder = "das6-cpu"
     os.makedirs(output_folder, exist_ok=True)
-    print(f"writing results to das6-cpu/{output_file}...")
+    print(f"writing results to {output_folder}/{output_file}...")
 
     run_benchmark(
         f, n, environs, bulksizes, nbins, input_files, f"{output_folder}/{output_file}"
