@@ -103,7 +103,7 @@ int main(int argc, char **argv)
    expected.open(os.str());
 
    auto histArray = result.GetArray();
-   for (int i = 0; i < nbins; i++) {
+   for (int i = 0; i < nbins + 2; i++) {
       expected << histArray[i] << " ";
    }
    expected << "\n";
