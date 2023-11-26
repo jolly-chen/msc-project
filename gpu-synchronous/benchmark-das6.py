@@ -113,6 +113,7 @@ def run_benchmark(f, n, gpus, environs, bulksizes, nbins, input_files, output_fi
                                     )
                                     file_handler.flush()
 
+                                    diff_result.write(f"{ipf}\n")
                                     subprocess.run(
                                         [
                                             "diff",
@@ -123,6 +124,7 @@ def run_benchmark(f, n, gpus, environs, bulksizes, nbins, input_files, output_fi
                                         stdout=diff_result,
                                         stderr=diff_result,
                                     )
+                                    diff_result.flush()
 
 
 if __name__ == "__main__":
@@ -146,7 +148,6 @@ if __name__ == "__main__":
         # 10000,
         # 50000,
     ]
-
 
     bulksizes = [
         # 1,
@@ -195,7 +196,16 @@ if __name__ == "__main__":
     os.makedirs(output_folder, exist_ok=True)
     print(f"writing results to {output_folder}/{output_file}...")
 
-    run_benchmark(f, n, gpus, environs, bulksizes, nbins, input_files, output_file)
+    run_benchmark(
+        f,
+        n,
+        gpus,
+        environs,
+        bulksizes,
+        nbins,
+        input_files,
+        f"{output_folder}/{output_file}",
+    )
 
     run_nsys_benchmark(
         f,
