@@ -104,7 +104,7 @@ if __name__ == "__main__":
     ]
 
     input_folder = "/var/scratch/jchen/input"
-    f = "../benchmarks/histond_benchmark_timing"
+    f = "../benchmarks/histond_benchmark"
     if len(sys.argv) > 1:
         output_file = sys.argv[1]
     else:
