@@ -133,7 +133,7 @@ if __name__ == "__main__":
         "SYCL_HIST",
     ]
 
-    n = 1
+    n = 5
     nbins = [
         1,
         # 2,
@@ -182,7 +182,7 @@ if __name__ == "__main__":
         "A4000",
         "A2",
         "A6000",
-        "A100 -p fatq",
+#        "A100 -p fatq",
     ]
 
     input_folder = "/var/scratch/jchen/input"
@@ -215,5 +215,5 @@ if __name__ == "__main__":
         bulksizes,
         nbins,
         input_files,
-        f"{output_folder}/{output_file}",
+        f"{output_folder}/nys-{output_file}",
     )
