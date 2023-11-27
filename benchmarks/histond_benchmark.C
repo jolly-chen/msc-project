@@ -82,9 +82,9 @@ int main(int argc, char **argv)
    /// Benchmark START
    auto start = Clock::now();
    auto h1 = df.Histo1D<double>(mdl, "Doubles");
-   auto result = h1.GetValue();
+   auto &result = h1.GetValue();
    auto end = Clock::now();
-   /// Benchmark END
+   /// Benchmark EbND
 
 #ifdef LIKWID
    LIKWID_MARKER_CLOSE;
