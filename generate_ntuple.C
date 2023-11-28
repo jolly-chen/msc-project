@@ -1,14 +1,3 @@
-
-// NOTE: The RNTuple classes are experimental at this point.
-// Functionality, interface, and data format is still subject to changes.
-// Do not use for real data!
-
-// Until C++ runtime modules are universally used, we explicitly load the ntuple
-// library.  Otherwise triggering autoloading from the use of templated types
-// would require an exhaustive enumeration of "all" template instances in the
-// LinkDef file.
-// R__LOAD_LIBRARY(ROOTNTuple)
-
 #include <ROOT/RNTuple.hxx>
 #include <ROOT/RNTupleModel.hxx>
 
@@ -57,24 +46,26 @@ void Generate(size_t n, std::string mode, char *argv[])
       }
    } else if (mode == "normal") {
       for (size_t i = 0; i < n; i++) {
-         *fldVals = r.Gaus(0.5, 0.5);
+         *fldVals = r.Gaus(std::stod(argv[0]), std::stod(argv[1]));
          ntuple->Fill();
       }
    } else if (mode == "constant") {
+      auto val = std::stod(argv[0]);
       for (size_t i = 0; i < n; i++) {
-         *fldVals = 0.5;
+         *fldVals = val;
          ntuple->Fill();
       }
    } else if (mode == "strided") {
       auto stride = atol(argv[0]);
-      auto nbins = atol(argv[1]);
+      auto range = atol(argv[1]);
+      auto nbins = atol(argv[2]);
 
-      // double val = 0;
-      // for (size_t i = 0; i < n; i++) {
-      //    *fldVals = val;
-      //    ntuple->Fill();
-      //    val += (1/nbins * stride) %
-      // }
+      double val = 0;
+      for (size_t i = 0; i < n; i++) {
+         *fldVals = val / nbins;
+         ntuple->Fill();
+         val += stride % range;
+      }
    } else {
       printf("Mode %s unknown!\n", mode.c_str());
    }
@@ -112,10 +103,16 @@ void Analyze()
 }
 
 // root macro
-void generate_ntuple(size_t n, std::string mode, char *argv[])
+void generate_ntuple(std::string output_folder, size_t n, std::string mode, int argc, char *argv[])
 {
    std::ostringstream ss;
-   ss << "input/doubles_" << mode.c_str() << "_" << n << ".root";
+   ss << output_folder << "/doubles_" << mode.c_str();
+   for (int i = 0; i < argc; i++) {
+      if (argc != 0)
+         ss << "-";
+      ss << argv[i];
+   }
+   ss << "_" << n << ".root";
    kNTupleFileName = ss.str();
 
    printf("Generating %s...\n", kNTupleFileName.c_str());
@@ -124,21 +121,41 @@ void generate_ntuple(size_t n, std::string mode, char *argv[])
    Analyze();
 }
 
+void PrintHelp()
+{
+   printf("Usage: ./generate_ntuple args [additional args]\n"
+          "Args:\n"
+          "    -o output folder\n"
+          "    -n number of values\n"
+          "    -m mode\n"
+          "       uniform\n"
+          "       normal <mean> <dev>\n"
+          "       constant <val>\n"
+          "       strided <stride> <range> <nbins>\n");
+   exit(0);
+}
+
 int main(int argc, char *argv[])
 {
-   size_t n = 1e6;
-   std::string mode = "uniform";
+   long int n = -1;
+   std::string mode = "";
+   std::string output_folder = "";
 
    int c;
-   while ((c = getopt(argc, argv, "n:m:")) != -1) {
+   while ((c = getopt(argc, argv, "o:n:m:h")) != -1) {
       switch (c) {
+      case 'o': output_folder = optarg; break;
       case 'n': n = atol(optarg); break;
       case 'm': mode = optarg; break;
+      case 'h': PrintHelp(); break;
       default: std::cout << "Ignoring unknown parse returns: " << char(c) << std::endl;
       }
    }
 
-   generate_ntuple(n, mode, argc > 5 ? &argv[5] : NULL);
+   if (n < 0 || mode == "")
+      PrintHelp();
+
+   generate_ntuple(output_folder, n, mode, argc - 7, &argv[7]);
 
    return 0;
 }
