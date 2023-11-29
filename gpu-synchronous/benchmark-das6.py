@@ -11,12 +11,10 @@ import time
 def run_nsys_benchmark(
     f, n, gpus, environs, bulksizes, nbins, input_files, output_file
 ):
-    os.makedirs(f"{output_file}/api", exist_ok=True)
-    os.makedirs(f"{output_file}/kernel", exist_ok=True)
-    os.makedirs(f"{output_file}/memop", exist_ok=True)
+    os.makedirs(f"{output_file}", exist_ok=True)
 
     for iter in range(n):
-        for gpu in gpus:
+        for gi, gpu in enumerate(gpus):
             for ei, e in enumerate(environs):
                 for bi, b in enumerate(bulksizes):
                     for nbi, nb in enumerate(nbins):
@@ -27,11 +25,11 @@ def run_nsys_benchmark(
                                 arg = f"-b{b} -h{nb} -f{input_file} {edges}"
                                 print(arg)
                                 cmd = f"prun -v -np 1 -native '-C gpunode,{gpu} --gres=gpu:1'"
-                                nsys = "/cm/shared/apps/cuda11.5/toolkit/11.5/nsight-systems-2021.5.1/target-linux-x64/nsys"
+                                nsys = "/cm/shared/apps/cuda12.3/toolkit/12.3/bin/nsys"
 
                                 # Profile code with nsys
                                 profile = subprocess.run(
-                                    f"{cmd} {nsys} profile -otemp {f} {arg}",
+                                    f"{cmd} {nsys} profile -otemp --force-overwrite=true {f} {arg}",
                                     env={**os.environ, e: "1"},
                                     stdout=subprocess.PIPE,
                                     check=True,
@@ -40,38 +38,55 @@ def run_nsys_benchmark(
 
                                 # Gather statistics
                                 result = subprocess.run(
-                                    f"{cmd} {nsys} stats temp.nsys-rep --format=csv",
+                                    f"{cmd} {nsys} stats temp.nsys-rep --force-export=true --format=csv",
                                     stdout=subprocess.PIPE,
                                     check=True,
                                     shell=True,
                                 )
-                                subprocess.run(["rm", "temp.nsys-rep", "temp.sqlite"])
+                                subprocess.run(["rm", "temp.*"])
                                 output = result.stdout.decode("utf-8").split("\n\n")
 
-                                with open(
-                                    f"{output_file}/api/{gpu}-b{b}-h{nb}-f{ipf}{edges}",
-                                    "w",
-                                ) as file_handler:
-                                    file_handler.write(
-                                        "\n".join(output[2].split("\n")[1:])
-                                    )
+                                if not Path(f"{output_file}/api").exists():
+                                    with open(f"{output_file}/api", "w") as file_handler:
+                                        header = output[2].split("\n")[1]
+                                        file_handler.write(f"iter,env,gpu,nbins,bulksize,input,{header}\n")
+
+                                if not Path(f"{output_file}/kernel").exists():
+                                    with open(f"{output_file}/kernel", "w") as file_handler:
+                                        header = output[3].split("\n")[1]
+                                        file_handler.write(f"iter,env,gpu,nbins,bulksize,input,{header}\n")
+
+                                if not Path(f"{output_file}/memop").exists():
+                                    with open(f"{output_file}/memop","w") as file_handler:
+                                        header = output[4].split("\n")[1]
+                                        file_handler.write(f"iter,env,gpu,nbins,bulksize,input,{header}\n")
 
                                 with open(
-                                    f"{output_file}/kernel/{gpu}-b{b}-h{nb}-f{ipf}{edges}",
-                                    "w",
+                                    f"{output_file}/api",
+                                    "a",
                                 ) as file_handler:
                                     file_handler.write(
-                                        "\n".join(output[3].split("\n")[1:])
+                                        "\n".join([f"{iter},{e},{gpu},{nb},{b},{input_file},{'True' if edges != '' else 'False'},{s}" for s in output[2].split("\n")[2:]])
                                     )
+                                    file_handler.write("\n")
 
                                 with open(
-                                    f"{output_file}/memop/{gpu}-b{b}-h{nb}-f{ipf}{edges}",
-                                    "w",
+                                    f"{output_file}/kernel",
+                                    "a",
                                 ) as file_handler:
                                     file_handler.write(
-                                        "\n".join(output[4].split("\n")[1:])
+                                        "\n".join([f"{iter},{e},{gpu},{nb},{b},{input_file},{'True' if edges != '' else 'False'},{s}" for s in output[3].split("\n")[2:]])
                                     )
+                                    file_handler.write("\n")
 
+                                with open(
+                                    f"{output_file}/memop",
+                                    "a",
+                                ) as file_handler:
+                                    file_handler.write(
+                                        "\n".join([f"{iter},{e},{gpu},{nb},{b},{input_file},{'True' if edges != '' else 'False'},{s}" for s in output[4].split("\n")[2:]])
+                                    )
+                                    file_handler.write("\n")
 
 def run_benchmark(f, n, gpus, environs, bulksizes, nbins, input_files, output_file=""):
     if not Path(output_file).exists():
@@ -186,26 +201,26 @@ if __name__ == "__main__":
     ]
 
     input_folder = "/var/scratch/jchen/input"
-    f = "../benchmarks/histond_benchmark"
+    f = "/home/jchen/msc-project/benchmarks/histond_benchmark"
     if len(sys.argv) > 1:
         output_file = sys.argv[1]
     else:
         output_file = f"{time.strftime('%Y%m%d-%H%M%S')}"
 
-    output_folder = "das6-gpu"
+    output_folder = "/home/jchen/msc-project/gpu-synchronous/das6-gpu"
     os.makedirs(output_folder, exist_ok=True)
     print(f"writing results to {output_folder}/{output_file}...")
 
     run_benchmark(
-        f,
-        n,
-        gpus,
-        environs,
-        bulksizes,
-        nbins,
-        input_files,
-        f"{output_folder}/{output_file}",
-    )
+       f,
+       n,
+       gpus,
+       environs,
+       bulksizes,
+       nbins,
+       input_files,
+       f"{output_folder}/{output_file}",
+   )
 
     run_nsys_benchmark(
         f,
