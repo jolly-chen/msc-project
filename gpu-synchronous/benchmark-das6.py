@@ -49,17 +49,17 @@ def run_nsys_benchmark(
                                 if not Path(f"{output_file}/api").exists():
                                     with open(f"{output_file}/api", "w") as file_handler:
                                         header = output[2].split("\n")[1]
-                                        file_handler.write(f"iter,env,gpu,nbins,bulksize,input,{header}\n")
+                                        file_handler.write(f"iter,env,gpu,nbins,bulksize,input,edges,{header}\n")
 
                                 if not Path(f"{output_file}/kernel").exists():
                                     with open(f"{output_file}/kernel", "w") as file_handler:
                                         header = output[3].split("\n")[1]
-                                        file_handler.write(f"iter,env,gpu,nbins,bulksize,input,{header}\n")
+                                        file_handler.write(f"iter,env,gpu,nbins,bulksize,input,edges,{header}\n")
 
                                 if not Path(f"{output_file}/memop").exists():
                                     with open(f"{output_file}/memop","w") as file_handler:
                                         header = output[4].split("\n")[1]
-                                        file_handler.write(f"iter,env,gpu,nbins,bulksize,input,{header}\n")
+                                        file_handler.write(f"iter,env,gpu,nbins,bulksize,input,edges,{header}\n")
 
                                 with open(
                                     f"{output_file}/api",
@@ -92,7 +92,7 @@ def run_benchmark(f, n, gpus, environs, bulksizes, nbins, input_files, output_fi
     if not Path(output_file).exists():
         with open(output_file, "w") as file_handler:
             file_handler.write(
-                "iter,env,gpu,nbins,bulksize,input,tfindbin,tfill,tstats,ttotal\n"
+                "iter,env,gpu,nbins,bulksize,input,edges,tfindbin,tfill,tstats,ttotal\n"
             )
 
     with open(output_file, "a") as file_handler, open(
@@ -144,7 +144,7 @@ def run_benchmark(f, n, gpus, environs, bulksizes, nbins, input_files, output_fi
 
 if __name__ == "__main__":
     environs = [
-        "CUDA_HIST",
+#         "CUDA_HIST",
         "SYCL_HIST",
     ]
 
@@ -195,8 +195,8 @@ if __name__ == "__main__":
 
     gpus = [
         "A4000",
-        "A2",
-        "A6000",
+#        "A2",
+#        "A6000",
 #        "A100 -p fatq",
     ]
 
