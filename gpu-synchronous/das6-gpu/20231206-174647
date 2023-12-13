@@ -1,4 +1,4 @@
-iter,env,gpu,nbins,bulksize,input,tfindbin,tfill,tstats,ttotal
+iter,env,gpu,nbins,bulksize,input,edges,tfindbin,tfill,tstats,ttotal
 0,DPC++,A4000,1,32768,/var/scratch/jchen/input/doubles_uniform_50000000.root,False,0.000000,0.000000,0.000000,3.158348
 0,DPC++,A4000,1,32768,/var/scratch/jchen/input/doubles_uniform_50000000.root,True,0.000000,0.000000,0.000000,3.143772
 0,DPC++,A4000,1,32768,/var/scratch/jchen/input/doubles_uniform_100000000.root,False,0.000000,0.000000,0.000000,3.593378
