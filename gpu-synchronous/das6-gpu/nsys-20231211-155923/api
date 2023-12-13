@@ -1,4 +1,4 @@
-iter,env,gpu,nbins,bulksize,input,Time (%),Total Time (ns),Num Calls,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Name
+iter,env,gpu,nbins,bulksize,input,edges,Time (%),Total Time (ns),Num Calls,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Name
 0,AdaptiveCpp,A4000,1,32768,/var/scratch/jchen/input/doubles_uniform_50000000.root,False,31.1,226624986,10690,21199.7,7865.0,6753,132465001,1281105.6,cudaLaunchKernel
 0,AdaptiveCpp,A4000,1,32768,/var/scratch/jchen/input/doubles_uniform_50000000.root,False,23.2,168862502,4,42215625.5,4097.5,2985,168851322,84423797.7,cudaStreamCreateWithFlags
 0,AdaptiveCpp,A4000,1,32768,/var/scratch/jchen/input/doubles_uniform_50000000.root,False,22.6,164683254,3064,53747.8,55674.0,5851,119444,5370.4,cudaMemcpyAsync

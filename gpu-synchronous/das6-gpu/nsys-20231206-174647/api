@@ -1,4 +1,4 @@
-iter,env,gpu,nbins,bulksize,input,Time (%),Total Time (ns),Num Calls,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Name
+iter,env,gpu,nbins,bulksize,input,edges,Time (%),Total Time (ns),Num Calls,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Name
 0,DPC++,A4000,1,32768,/var/scratch/jchen/input/doubles_uniform_50000000.root,False,63.1,926969348,2,463484674.0,463484674.0,517309,926452039,654734726.5,cuModuleLoadDataEx
 0,DPC++,A4000,1,32768,/var/scratch/jchen/input/doubles_uniform_50000000.root,False,9.0,132488923,2,66244461.5,66244461.5,89929,132398994,93556637.1,cuModuleUnload
 0,DPC++,A4000,1,32768,/var/scratch/jchen/input/doubles_uniform_50000000.root,False,6.4,93768922,3060,30643.4,28944.0,7785,94236,5583.1,cuMemcpyAsync

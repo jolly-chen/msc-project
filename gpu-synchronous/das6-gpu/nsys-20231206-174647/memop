@@ -1,4 +1,4 @@
-iter,env,gpu,nbins,bulksize,input,Time (%),Total Time (ns),Count,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Operation
+iter,env,gpu,nbins,bulksize,input,edges,Time (%),Total Time (ns),Count,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Operation
 0,DPC++,A4000,1,32768,/var/scratch/jchen/input/doubles_uniform_50000000.root,False,100.0,46872242,3058,15327.7,15328.0,416,16352,589.7,[CUDA memcpy Host-to-Device]
 0,DPC++,A4000,1,32768,/var/scratch/jchen/input/doubles_uniform_50000000.root,False,0.0,2687,2,1343.5,1343.5,1343,1344,0.7,[CUDA memcpy Device-to-Host]
 0,DPC++,A4000,1,32768,/var/scratch/jchen/input/doubles_uniform_50000000.root,False,0.0,864,2,432.0,432.0,416,448,22.6,[CUDA memset]
