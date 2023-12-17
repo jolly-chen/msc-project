@@ -23,9 +23,9 @@ def run_nsys_benchmark(
                                 input_file = f"{input_folder}/{ipf}"
                                 stem = Path(ipf).stem
                                 arg = f"-b{b} -h{nb} -f{input_file} {edges}"
-                                print(arg)
                                 cmd = f"prun -v -np 1 -native '-C gpunode,{gpu} --gres=gpu:1'"
-                                nsys = "/cm/shared/apps/cuda12.3/toolkit/12.3/bin/nsys"
+                                nsys = "/cm/shared/apps/cuda12.3/toolkit/12.3/nsight-systems-2023.4.1/bin/nsys"
+                                print(f"{cmd} {nsys} profile -otemp {f} {arg}")
 
                                 # Profile code with nsys
                                 profile = subprocess.run(
@@ -153,10 +153,10 @@ if __name__ == "__main__":
         1,
         # 2,
         # 5,
-        10,
+       10,
         # 20,
         # 50,
-        100,
+       100,
         # 500,
         1000,
         # 5000,
@@ -187,8 +187,8 @@ if __name__ == "__main__":
     ]
 
     input_files = [
-        "doubles_uniform_50000000.root",  # 50M
-        "doubles_uniform_100000000.root",  # 100M
+#        "doubles_uniform_50000000.root",  # 50M
+#        "doubles_uniform_100000000.root",  # 100M
         "doubles_uniform_500000000.root",  # 500M
         "doubles_uniform_1000000000.root",  # 1B
     ]
@@ -211,16 +211,16 @@ if __name__ == "__main__":
     os.makedirs(output_folder, exist_ok=True)
     print(f"writing results to {output_folder}/{output_file}...")
 
-    run_benchmark(
-       f,
-       n,
-       gpus,
-       environs,
-       bulksizes,
-       nbins,
-       input_files,
-       f"{output_folder}/{output_file}",
-   )
+   run_benchmark(
+      f,
+      n,
+      gpus,
+      environs,
+      bulksizes,
+      nbins,
+      input_files,
+      f"{output_folder}/{output_file}",
+  )
 
     run_nsys_benchmark(
         f,
@@ -230,5 +230,5 @@ if __name__ == "__main__":
         bulksizes,
         nbins,
         input_files,
-        f"{output_folder}/nys-{output_file}",
+        f"{output_folder}/nsys-{output_file}",
     )
