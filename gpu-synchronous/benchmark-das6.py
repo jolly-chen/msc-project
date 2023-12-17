@@ -230,5 +230,5 @@ if __name__ == "__main__":
         bulksizes,
         nbins,
         input_files,
-        f"{output_folder}/nys-{output_file}",
+        f"{output_folder}/nsys-{output_file}",
     )
