@@ -8,6 +8,10 @@
 #include <sstream>
 #include <filesystem>
 
+#include <chrono>
+using Clock = std::chrono::steady_clock;
+using fsecs = std::chrono::duration<double, std::chrono::seconds::period>;
+
 #ifdef LIKWID
 #include <likwid-marker.h>
 #endif
