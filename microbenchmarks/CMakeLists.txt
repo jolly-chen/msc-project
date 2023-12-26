@@ -12,6 +12,6 @@ create_project(TARGET gpu-microbenchmarks
                DEPENDENCIES benchmark::benchmark benchmark::benchmark_main
                EXTRA_LANGUAGES CUDA)
 
-create_project(TARGET simulate_cache
-               SOURCES simulate_cache.cpp)
-target_include_directories(simulate_cache PUBLIC ${Pycachesim_DIR})
+#create_project(TARGET simulate_cache
+#               SOURCES simulate_cache.cpp)
+#target_include_directories(simulate_cache PUBLIC ${Pycachesim_DIR})
