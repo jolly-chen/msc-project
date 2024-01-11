@@ -7,19 +7,24 @@ import sys
 from io import StringIO
 import time
 
+base_header = "iter,env,gpu,cc,type,nbins,bulksize,input,edges,reduction"
+reduction = 2
+cc = "75"
+edges_list = ["-e"]
+types="USM"
 
 def run_nsys_benchmark(
     f, n, gpus, environs, bulksizes, nbins, input_files, output_file
 ):
     os.makedirs(f"{output_file}", exist_ok=True)
 
-    for iter in range(n):
-        for gi, gpu in enumerate(gpus):
+    for gi, gpu in enumerate(gpus):
+        for iter in range(n):
             for ei, e in enumerate(environs):
                 for bi, b in enumerate(bulksizes):
                     for nbi, nb in enumerate(nbins):
                         for nif, ipf in enumerate(input_files):
-                            for edges in ["", "-e"]:
+                            for edges in edges_list:
                                 input_file = f"{input_folder}/{ipf}"
                                 stem = Path(ipf).stem
                                 arg = f"-b{b} -h{nb} -f{input_file} {edges}"
@@ -49,24 +54,25 @@ def run_nsys_benchmark(
                                 if not Path(f"{output_file}/api").exists():
                                     with open(f"{output_file}/api", "w") as file_handler:
                                         header = output[2].split("\n")[1]
-                                        file_handler.write(f"iter,env,gpu,nbins,bulksize,input,edges,{header}\n")
+                                        file_handler.write(f"{base_header},{header}\n")
 
                                 if not Path(f"{output_file}/kernel").exists():
                                     with open(f"{output_file}/kernel", "w") as file_handler:
                                         header = output[3].split("\n")[1]
-                                        file_handler.write(f"iter,env,gpu,nbins,bulksize,input,edges,{header}\n")
+                                        file_handler.write(f"{base_header},{header}\n")
 
                                 if not Path(f"{output_file}/memop").exists():
                                     with open(f"{output_file}/memop","w") as file_handler:
                                         header = output[4].split("\n")[1]
-                                        file_handler.write(f"iter,env,gpu,nbins,bulksize,input,edges,{header}\n")
+                                        file_handler.write(f"{base_header},{header}\n")
 
+                                out_base = f"{iter},{e},{gpu},{cc},{types},{nb},{b},{input_file},{'True' if edges != '' else 'False'},{reduction}"
                                 with open(
                                     f"{output_file}/api",
                                     "a",
                                 ) as file_handler:
                                     file_handler.write(
-                                        "\n".join([f"{iter},{e},{gpu},{nb},{b},{input_file},{'True' if edges != '' else 'False'},{s}" for s in output[2].split("\n")[2:]])
+                                        "\n".join([f"{out_base},{s}" for s in output[2].split("\n")[2:]])
                                     )
                                     file_handler.write("\n")
 
@@ -75,7 +81,7 @@ def run_nsys_benchmark(
                                     "a",
                                 ) as file_handler:
                                     file_handler.write(
-                                        "\n".join([f"{iter},{e},{gpu},{nb},{b},{input_file},{'True' if edges != '' else 'False'},{s}" for s in output[3].split("\n")[2:]])
+                                        "\n".join([f"{out_base},{s}" for s in output[3].split("\n")[2:]])
                                     )
                                     file_handler.write("\n")
 
@@ -84,7 +90,7 @@ def run_nsys_benchmark(
                                     "a",
                                 ) as file_handler:
                                     file_handler.write(
-                                        "\n".join([f"{iter},{e},{gpu},{nb},{b},{input_file},{'True' if edges != '' else 'False'},{s}" for s in output[4].split("\n")[2:]])
+                                        "\n".join([f"{out_base},{s}" for s in output[4].split("\n")[2:]])
                                     )
                                     file_handler.write("\n")
 
@@ -92,24 +98,24 @@ def run_benchmark(f, n, gpus, environs, bulksizes, nbins, input_files, output_fi
     if not Path(output_file).exists():
         with open(output_file, "w") as file_handler:
             file_handler.write(
-                "iter,env,gpu,nbins,bulksize,input,edges,tfindbin,tfill,tstats,ttotal\n"
+                f"{base_header},tfindbin,tfill,tstats,ttotal\n"
             )
 
     with open(output_file, "a") as file_handler, open(
         f"{output_file}-diff", "w"
     ) as diff_result:
-        for iter in range(n):
-            for gpu in gpus:
+        for gpu in gpus:
+            for iter in range(n):
                 for ei, e in enumerate(environs):
                     for bi, b in enumerate(bulksizes):
                         for nbi, nb in enumerate(nbins):
                             for nif, ipf in enumerate(input_files):
-                                for edges in ["", "-e"]:
+                                for edges in edges_list:
                                     input_file = f"{input_folder}/{ipf}"
                                     stem = Path(ipf).stem
                                     arg = f"-b{b} -h{nb} -f{input_file} {edges}"
-                                    print(arg)
                                     cmd = f"prun -v -np 1 -native '-C gpunode,{gpu} --gres=gpu:1'"
+                                    print(f"{cmd} {f} {arg}")
 
                                     r = subprocess.run(
                                         f"{cmd} {f} {arg}",
@@ -122,9 +128,11 @@ def run_benchmark(f, n, gpus, environs, bulksizes, nbins, input_files, output_fi
                                     output = (
                                         r.stdout.decode("utf-8").strip().split("\n")
                                     )
+
                                     times = [o.split(":")[1] for o in output]
+                                    out_base = f"{iter},{e},{gpu},{cc},{types},{nb},{b},{input_file},{'True' if edges != '' else 'False'},{reduction}"
                                     file_handler.write(
-                                        f"{iter},{e},{gpu},{nb},{b},{input_file},{'True' if edges != '' else 'False'},{','.join(times)}\n"
+                                        f"{out_base},{','.join(times)}\n"
                                     )
                                     file_handler.flush()
 
@@ -144,19 +152,19 @@ def run_benchmark(f, n, gpus, environs, bulksizes, nbins, input_files, output_fi
 
 if __name__ == "__main__":
     environs = [
-#         "CUDA_HIST",
-        "SYCL_HIST",
+        "CUDA_HIST",
+        # "SYCL_HIST",
     ]
 
     n = 5
     nbins = [
-        1,
+#        1,
         # 2,
         # 5,
-       10,
+#       10,
         # 20,
         # 50,
-       100,
+#       100,
         # 500,
         1000,
         # 5000,
@@ -187,8 +195,8 @@ if __name__ == "__main__":
     ]
 
     input_files = [
-#        "doubles_uniform_50000000.root",  # 50M
-#        "doubles_uniform_100000000.root",  # 100M
+        "doubles_uniform_50000000.root",  # 50M
+        "doubles_uniform_100000000.root",  # 100M
         "doubles_uniform_500000000.root",  # 500M
         "doubles_uniform_1000000000.root",  # 1B
     ]
@@ -211,7 +219,7 @@ if __name__ == "__main__":
     os.makedirs(output_folder, exist_ok=True)
     print(f"writing results to {output_folder}/{output_file}...")
 
-   run_benchmark(
+    run_benchmark(
       f,
       n,
       gpus,
@@ -220,7 +228,7 @@ if __name__ == "__main__":
       nbins,
       input_files,
       f"{output_folder}/{output_file}",
-  )
+    )
 
     run_nsys_benchmark(
         f,
