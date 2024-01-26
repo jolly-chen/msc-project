@@ -2,13 +2,11 @@ cmake_minimum_required(VERSION 3.4.3)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
-set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_ARCHITECTURES 75)
 add_compile_options(-Wall -Wextra -Wpedantic)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
-
 project(dummy)
+
 
 function(create_project)
     CMAKE_PARSE_ARGUMENTS(ARG "" "TARGET" "SOURCES;DEPENDENCIES;PACKAGES;EXTRA_LANGUAGES" ${ARGN})
