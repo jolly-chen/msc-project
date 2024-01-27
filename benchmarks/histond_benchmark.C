@@ -30,16 +30,18 @@ int main(int argc, char **argv)
    int nbins = -1;
    bool verbose = false;
    bool edges = false;
+   bool write_result = false;
    char *file;
 
    int c;
-   while ((c = getopt(argc, argv, "b:h:f:ve")) != -1) {
+   while ((c = getopt(argc, argv, "b:h:f:vew")) != -1) {
       switch (c) {
       case 'b': bulkSize = std::stoul(optarg); break;
       case 'h': nbins = atoi(optarg); break;
       case 'f': file = optarg; break;
       case 'v': verbose = true; break;
       case 'e': edges = true; break;
+      case 'w': write_result = true; break;
       default: std::cout << "Ignoring unknown parse returns: " << char(c) << std::endl;
       }
    }
@@ -100,24 +102,26 @@ int main(int argc, char **argv)
    }
 
    // To check the result
-   std::ostringstream os;
-   os << std::filesystem::path(file).stem().string() << "_h" << nbins << "_e" << (edges ? "1" : "0") << ".out";
+   if (write_result) {
+      std::ostringstream os;
+      os << std::filesystem::path(file).stem().string() << "_h" << nbins << "_e" << (edges ? "1" : "0") << ".out";
 
-   std::ofstream expected;
-   expected.open(os.str());
+      std::ofstream expected;
+      expected.open(os.str());
 
-   auto histArray = result.GetArray();
-   for (int i = 0; i < nbins + 2; i++) {
-      expected << histArray[i] << " ";
+      auto histArray = result.GetArray();
+      for (int i = 0; i < nbins + 2; i++) {
+         expected << histArray[i] << " ";
+      }
+      expected << "\n";
+
+      double stats[4];
+      result.GetStats(stats);
+      for (int i = 0; i < 4; i++) {
+         expected << stats[i] << " ";
+      }
+      expected << "\n" << result.GetEntries() << "\n";
    }
-   expected << "\n";
-
-   double stats[4];
-   result.GetStats(stats);
-   for (int i = 0; i < 4; i++) {
-      expected << stats[i] << " ";
-   }
-   expected << "\n" << result.GetEntries() << "\n";
 
    // Report timing
    printf("findbin:%f\n", result.tfindbin);
