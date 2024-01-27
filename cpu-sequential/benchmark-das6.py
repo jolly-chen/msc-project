@@ -6,12 +6,13 @@ import os
 import sys
 import time
 
+base_header = "iter,env,nbins,bulksize,input,edges,tfindbin,tfill,tstats,ttotal"
 
 def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file=""):
     if not Path(output_file).exists():
         with open(output_file, "w") as file_handler:
             file_handler.write(
-                "iter,env,nbins,bulksize,input,edges,tfindbin,tfill,tstats,ttotal\n"
+                f"{base_header}\n"
             )
 
     with open(output_file, "a") as file_handler:
@@ -23,9 +24,9 @@ def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file="")
                             for edges in ["", "-e"]:
                                 input_file = f"{input_folder}/{ipf}"
                                 stem = Path(ipf).stem
-                                arg = f"-b{b} -h{nb} -f{input_file} {edges}"
-                                print(arg)
                                 cmd = f"prun -v -np 1"
+                                arg = f"-b{b} -h{nb} -f{input_file} {edges} {'-w' if iter == 0 and bi == 0 else ''}"
+                                print(f"{cmd} {f} {arg}")
 
                                 r = subprocess.run(
                                     f"{cmd} {f} {arg}",
@@ -43,14 +44,26 @@ def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file="")
                                 file_handler.flush()
 
                                 if iter == 0 and bi == 0:
+                                    print(f"zstd --rm -f -o {input_folder}/expected/{stem}_h{nb}_e{'1' if edges != '' else '0'} {stem}_h{nb}_e{'1' if edges != '' else '0'}.out"),
                                     subprocess.run(
-                                        [
-                                            "mv",
-                                            f"{stem}_h{nb}_e{'1' if edges != '' else '0'}.out",
-                                            f"{input_folder}/expected/{stem}_h{nb}_e{'1' if edges != '' else '0'}",
-                                        ],
+                                            f"zstd --rm -f -o {input_folder}/expected/{stem}_h{nb}_e{'1' if edges != '' else '0'} {stem}_h{nb}_e{'1' if edges != '' else '0'}.out",
+                                        # [
+                                        #     "zstd",
+                                        #     "--rm",
+                                        #     f"{stem}_h{nb}_e{'1' if edges != '' else '0'}.out",
+                                        #     f"-o{input_folder}/expected/{stem}_h{nb}_e{'1' if edges != '' else '0'}",
+                                        # ],
                                         check=True,
+                                        shell=True,
                                     )
+                                    # subprocess.run(
+                                    #     [
+                                    #         "mv",
+                                    #         f"{stem}_h{nb}_e{'1' if edges != '' else '0'}.out",
+                                    #         f"{input_folder}/expected/{stem}_h{nb}_e{'1' if edges != '' else '0'}",
+                                    #     ],
+                                    #     check=True,
+                                    # )
 
 
 if __name__ == "__main__":
@@ -60,47 +73,64 @@ if __name__ == "__main__":
 
     n = 5
     nbins = [
-        1,
+        #       1,
         #       2,
         #       5,
         10,
         #       20,
         #       50,
-        100,
+        #       100,
         #       500,
         1000,
         #       5000,
         #       10000,
-        # 50000,
+        #       50000,
+        100000,   # 100K
+        10000000, # 10M
     ]
 
     bulksizes = [
-        #        1,
+               1,
         # 2,
         # 4,
-        #        8,
+               8,
         # 16,
         # 32,
-        #        64,
+               64,
         # 128,
         # 256,
-        #        512,
+               512,
         # 1024,
         # 2048,
-        #        4096,
+               4096,
         # 8192,
         # 16384,
-        32768,
+               32768,
         # 65536,
         # 131072,
-        #        262144,
+               262144,
     ]
 
     input_files = [
-        "doubles_uniform_50000000.root",  # 50M
-        "doubles_uniform_100000000.root",  # 100M
-        "doubles_uniform_500000000.root",  # 500M
-        "doubles_uniform_1000000000.root",  # 1B
+        # "doubles_uniform_50000000.root",  # 50M
+        # "doubles_uniform_100000000.root",  # 100M
+        # "doubles_uniform_500000000.root",  # 500M
+        # "doubles_uniform_1000000000.root",  # 1B
+
+        # "doubles_constant-0.5_50000000.root",  # 50M
+        # "doubles_constant-0.5_100000000.root",  # 100M
+        # "doubles_constant-0.5_500000000.root",  # 500M
+        # "doubles_constant-0.5_1000000000.root",  # 1B
+
+        # "doubles_normal-0.4-0.1_50000000.root",  # 50M
+        # "doubles_normal-0.4-0.1_100000000.root",  # 100M
+        # "doubles_normal-0.4-0.1_500000000.root",  # 500M
+        # "doubles_normal-0.4-0.1_1000000000.root",  # 1B
+
+        "doubles_normal-0.7-0.01_50000000.root",  # 50M
+        "doubles_normal-0.7-0.01_100000000.root",  # 100M
+        "doubles_normal-0.7-0.01_500000000.root",  # 500M
+        "doubles_normal-0.7-0.01_1000000000.root",  # 1B
     ]
 
     input_folder = "/var/scratch/jchen/input"
