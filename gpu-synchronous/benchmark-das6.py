@@ -113,8 +113,8 @@ def run_benchmark(f, n, gpus, environs, bulksizes, nbins, input_files, output_fi
                                 for edges in edges_list:
                                     input_file = f"{input_folder}/{ipf}"
                                     stem = Path(ipf).stem
-                                    arg = f"-b{b} -h{nb} -f{input_file} {edges}"
                                     cmd = f"prun -v -np 1 -native '-C gpunode,{gpu} --gres=gpu:1'"
+                                    arg = f"-b{b} -h{nb} -f{input_file} {edges} -w"
                                     print(f"{cmd} {f} {arg}")
 
                                     r = subprocess.run(
