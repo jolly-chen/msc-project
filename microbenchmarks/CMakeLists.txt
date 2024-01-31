@@ -1,12 +1,12 @@
 
-create_project(TARGET cpu-microbenchmarks
-               SOURCES cpu-microbenchmarks.cpp
+create_project(TARGET cpu_calibration
+               SOURCES cpu_calibration.cpp
                PACKAGES benchmark
                DEPENDENCIES benchmark::benchmark benchmark::benchmark_main)
 # target_link_libraries(cpu-microbenchmarks PUBLIC pfm)
 
-create_project(TARGET gbenchmark_evaluation
-               SOURCES gbenchmark_evaluation.cpp
+create_project(TARGET investigational_benchmarks
+               SOURCES investigational_benchmarks.cpp
                PACKAGES benchmark
                DEPENDENCIES benchmark::benchmark benchmark::benchmark_main)
 

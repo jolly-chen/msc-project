@@ -72,6 +72,18 @@ public:
 template<typename T, std::size_t ALIGNMENT_IN_BYTES = 64>
 using AlignedVector = std::vector<T, AlignedAllocator<T, ALIGNMENT_IN_BYTES> >;
 
+/// Binary search taken from ROOT
+template <typename T>
+inline long long BinarySearch(long long n, const T *array, T value)
+{
+   const T *pind;
+   pind = std::lower_bound(array, array + n, value);
+   if ((pind != array + n) && (*pind == value))
+      return (pind - array);
+   else
+      return (pind - array - 1);
+}
+
 //______________________________________________________________________________
 //
 // Calibration of Model 1.1
@@ -120,17 +132,31 @@ BENCHMARK(BM_UpdateStats)
    ->UseManualTime()
    ->Unit(benchmark::kMillisecond);
 
-/// Binary search taken from ROOT
-template <typename T>
-inline long long BinarySearch(long long n, const T *array, T value)
-{
-   const T *pind;
-   pind = std::lower_bound(array, array + n, value);
-   if ((pind != array + n) && (*pind == value))
-      return (pind - array);
-   else
-      return (pind - array - 1);
+static void BM_FixedSearch(benchmark::State &state) {
+   long long bin;
+   long long repetitions = 1e7;
+
+   for (auto _ : state) {
+      for (int n = 0; n < repetitions; n++) {
+         int nbins = rand();
+         double x, xmin, xmax;
+         x = xmin = xmax = rand();
+
+         auto start = Clock::now();
+         bin = 1 + int(nbins * (x - xmin) / (xmax - xmin));
+         auto end = Clock::now();
+
+         auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
+         state.SetIterationTime(elapsed_seconds.count());
+      }
+   }
+
+   state.counters["repetitions"] = repetitions;
+   state.counters["bin"] = bin;
 }
+BENCHMARK(BM_FixedSearch)
+   ->UseManualTime()
+   ->Unit(benchmark::kMillisecond);
 
 // static void BM_BinarySearchH12(benchmark::State &state)
 // {
@@ -243,34 +269,3 @@ inline long long BinarySearch(long long n, const T *array, T value)
 // }
 // BENCHMARK(BM_BinarySearchStrided)->DenseRange(1, nbins, step)->UseManualTime()->Unit(benchmark::kMillisecond);
 
-// prun -np 1 -v likwid-pin -c  C0:0 ./cpu-microbenchmarks --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true --benchmark_format=json > das6-cpu/cpu_microbenchmarks.json
-static void BM_BinarySearch(benchmark::State &state) {
-   long long bin;
-   long long repetitions = 100000000;
-   int nbins = state.range(0) / sizeof(double);  // Increasing histogram size
-   // double val = nbins; // Last element
-   double val = nbins * (state.range(1) / 4.);
-
-   AlignedVector<double, 64> binedges(nbins);
-   auto data = binedges.data();
-   for (auto i = 0; i < nbins; i++) binedges[i] = i;
-
-   for (auto _ : state) {
-      for (int n = 0; n < repetitions; n++) {
-         bin = BinarySearch(nbins, data, val);
-      }
-   }
-
-   state.counters["repetitions"] = repetitions;
-   state.counters["nbins"] = nbins;
-   state.counters["val"] = val;
-   state.counters["bin"] = bin;
-}
-BENCHMARK(BM_BinarySearch)
-   // ->RangeMultiplier(4)
-   // ->Range(8, 33554432) // bytes
-   ->ArgsProduct({benchmark::CreateRange(8, 33554432, /*multi=*/8),
-                  {0, 1, 2, 3, 4}}) // Args only accepts integer, so this is a hacky way to get [0, 0.5, 1]
-   ->Unit(benchmark::kMillisecond);
-
-BENCHMARK_MAIN();
