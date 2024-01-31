@@ -20,42 +20,56 @@ def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file="")
             for ei, e in enumerate(environs):
                 for nbi, nb in enumerate(nbins):
                     for bi, b in enumerate(bulksizes):
-                        for nif, ipf in enumerate(input_files):
-                            for edges in ["", "-e"]:
+                        for edges in ["", "-e"]:
+                            procs = []
+                            write_result = '-w' if iter == 0 and bi == 0 else ''
+                            for nif, ipf in enumerate(input_files):
                                 input_file = f"{input_folder}/{ipf}"
                                 stem = Path(ipf).stem
-                                cmd = f"prun -v -np 1"
-                                arg = f"-b{b} -h{nb} -f{input_file} {edges} {'-w' if iter == 0 and bi == 0 else ''}"
+                                cmd = f""
+                                arg = f"-b{b} -h{nb} -f{input_file} {edges} {write_result}"
                                 print(f"{cmd} {f} {arg}")
 
-                                r = subprocess.run(
-                                    f"{cmd} {f} {arg}",
+                                p = subprocess.Popen(
+                                    [*f"{cmd} {f} {arg}".split()],
                                     env={**os.environ, e: "1"},
-                                    check=True,
+                                    # check=True,
                                     stdout=subprocess.PIPE,
-                                    shell=True,
+                                    # shell=True,
                                 )
+                                r_file = f"{stem}_h{nb}_e{'1' if edges != '' else '0'}"
+                                procs.append((p, r_file))
 
-                                output = r.stdout.decode("utf-8").strip().split("\n")
-                                times = [o.split(":")[1] for o in output]
-                                file_handler.write(
-                                    f"{iter},{e},{nb},{b},{stem},{'True' if edges != '' else 'False'},{','.join(times)}\n"
-                                )
-                                file_handler.flush()
+                            for p, r_file in procs:
+                                # r.wait()
+                                # output = r.stdout.decode("utf-8").strip().split("\n")
+                                output, stderr = p.communicate()
 
-                                if iter == 0 and bi == 0:
-                                    print(f"zstd --rm -f -o {input_folder}/expected/{stem}_h{nb}_e{'1' if edges != '' else '0'} {stem}_h{nb}_e{'1' if edges != '' else '0'}.out"),
-                                    subprocess.run(
-                                            f"zstd --rm -f -o {input_folder}/expected/{stem}_h{nb}_e{'1' if edges != '' else '0'} {stem}_h{nb}_e{'1' if edges != '' else '0'}.out",
-                                        # [
-                                        #     "zstd",
-                                        #     "--rm",
-                                        #     f"{stem}_h{nb}_e{'1' if edges != '' else '0'}.out",
-                                        #     f"-o{input_folder}/expected/{stem}_h{nb}_e{'1' if edges != '' else '0'}",
-                                        # ],
-                                        check=True,
-                                        shell=True,
+                                if stderr:
+                                    print("JOB FAILED:")
+                                    print(stderr)
+                                else:
+                                    output = output.decode("utf-8").strip().split("\n")
+                                    times = [o.split(":")[1] for o in output]
+                                    file_handler.write(
+                                        f"{iter},{e},{nb},{b},{stem},{'True' if edges != '' else 'False'},{','.join(times)}\n"
                                     )
+                                    file_handler.flush()
+
+                                    if write_result:
+                                        print(f"zstd --rm -f -o {input_folder}/expected/{r_file} {r_file}.out"),
+                                        subprocess.run(
+                                                f"zstd --rm -f -o {input_folder}/expected/{r_file} {r_file}.out",
+                                            # [
+                                            #     "zstd",
+                                            #     "--rm",
+                                            #     f"{r_file}.out",
+                                            #     f"-o{r_file}",
+                                            # ],
+                                            check=True,
+                                            shell=True,
+                                        )
+
                                     # subprocess.run(
                                     #     [
                                     #         "mv",
