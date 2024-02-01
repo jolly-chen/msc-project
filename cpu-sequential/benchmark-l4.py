@@ -50,6 +50,7 @@ def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file="")
                                     print(stderr)
                                 else:
                                     output = output.decode("utf-8").strip().split("\n")
+#                                    print(output)
                                     times = [o.split(":")[1] for o in output]
                                     file_handler.write(
                                         f"{iter},{e},{nb},{b},{stem},{'True' if edges != '' else 'False'},{','.join(times)}\n"
@@ -131,30 +132,30 @@ if __name__ == "__main__":
         "doubles_uniform_500000000.root",  # 500M
         "doubles_uniform_1000000000.root",  # 1B
 
-        # "doubles_constant-0.5_50000000.root",  # 50M
-        # "doubles_constant-0.5_100000000.root",  # 100M
-        # "doubles_constant-0.5_500000000.root",  # 500M
-        # "doubles_constant-0.5_1000000000.root",  # 1B
+        "doubles_constant-0.5_50000000.root",  # 50M
+        "doubles_constant-0.5_100000000.root",  # 100M
+        "doubles_constant-0.5_500000000.root",  # 500M
+        "doubles_constant-0.5_1000000000.root",  # 1B
 
-        # "doubles_normal-0.4-0.1_50000000.root",  # 50M
-        # "doubles_normal-0.4-0.1_100000000.root",  # 100M
-        # "doubles_normal-0.4-0.1_500000000.root",  # 500M
-        # "doubles_normal-0.4-0.1_1000000000.root",  # 1B
+        "doubles_normal-0.4-0.1_50000000.root",  # 50M
+        "doubles_normal-0.4-0.1_100000000.root",  # 100M
+        "doubles_normal-0.4-0.1_500000000.root",  # 500M
+        "doubles_normal-0.4-0.1_1000000000.root",  # 1B
 
-#        "doubles_normal-0.7-0.01_50000000.root",  # 50M
-#        "doubles_normal-0.7-0.01_100000000.root",  # 100M
-#        "doubles_normal-0.7-0.01_500000000.root",  # 500M
-#        "doubles_normal-0.7-0.01_1000000000.root",  # 1B
+        "doubles_normal-0.7-0.01_50000000.root",  # 50M
+        "doubles_normal-0.7-0.01_100000000.root",  # 100M
+        "doubles_normal-0.7-0.01_500000000.root",  # 500M
+        "doubles_normal-0.7-0.01_1000000000.root",  # 1B
     ]
 
     input_folder = "/data/jolly/input"
-    f = "/afs/cern.ch/user/j/jolly/msc-project-sm86/benchmarks/histond_benchmark"
+    f = "/data/jolly/msc-project-sm86/benchmarks/histond_benchmark"
     if len(sys.argv) > 1:
         output_file = sys.argv[1]
     else:
         output_file = f"{time.strftime('%Y%m%d-%H%M%S')}"
 
-    output_folder = "/data/jolly/cpu-sequential/l4-cpu"
+    output_folder = "/data/jolly/msc-project-sm86/cpu-sequential/l4-cpu"
     os.makedirs(output_folder, exist_ok=True)
     print(f"writing results to {output_folder}/{output_file}...")
 
