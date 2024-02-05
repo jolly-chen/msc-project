@@ -37,10 +37,9 @@ def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file="")
                                     stdout=subprocess.PIPE,
                                     # shell=True,
                                 )
-                                r_file = f"{stem}_h{nb}_e{'1' if edges != '' else '0'}"
-                                procs.append((p, r_file))
+                                procs.append((p, stem))
 
-                            for p, r_file in procs:
+                            for p, stem in procs:
                                 # r.wait()
                                 # output = r.stdout.decode("utf-8").strip().split("\n")
                                 output, stderr = p.communicate()
@@ -58,6 +57,7 @@ def run_benchmark(f, n, environs, bulksizes, nbins, input_files, output_file="")
                                     file_handler.flush()
 
                                     if write_result:
+                                        r_file = f"{stem}_h{nb}_e{'1' if edges != '' else '0'}"
                                         print(f"zstd --rm -f -o {input_folder}/expected/{r_file} {r_file}.out"),
                                         subprocess.run(
                                                 f"zstd --rm -f -o {input_folder}/expected/{r_file} {r_file}.out",
