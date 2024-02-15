@@ -130,20 +130,20 @@ if __name__ == "__main__":
         # "doubles_uniform_500000000.root",  # 500M
         # "doubles_uniform_1000000000.root",  # 1B
 
-        # "doubles_constant-0.5_50000000.root",  # 50M
-        # "doubles_constant-0.5_100000000.root",  # 100M
-        # "doubles_constant-0.5_500000000.root",  # 500M
-        # "doubles_constant-0.5_1000000000.root",  # 1B
+        "doubles_constant-0.5_50000000.root",  # 50M
+        "doubles_constant-0.5_100000000.root",  # 100M
+        "doubles_constant-0.5_500000000.root",  # 500M
+        "doubles_constant-0.5_1000000000.root",  # 1B
 
         # "doubles_normal-0.4-0.1_50000000.root",  # 50M
         # "doubles_normal-0.4-0.1_100000000.root",  # 100M
         # "doubles_normal-0.4-0.1_500000000.root",  # 500M
         # "doubles_normal-0.4-0.1_1000000000.root",  # 1B
 
-        "doubles_normal-0.7-0.01_50000000.root",  # 50M
-        "doubles_normal-0.7-0.01_100000000.root",  # 100M
-        "doubles_normal-0.7-0.01_500000000.root",  # 500M
-        "doubles_normal-0.7-0.01_1000000000.root",  # 1B
+        # "doubles_normal-0.7-0.01_50000000.root",  # 50M
+        # "doubles_normal-0.7-0.01_100000000.root",  # 100M
+        # "doubles_normal-0.7-0.01_500000000.root",  # 500M
+        # "doubles_normal-0.7-0.01_1000000000.root",  # 1B
     ]
 
     input_folder = "/var/scratch/jchen/input"
