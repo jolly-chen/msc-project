@@ -4,14 +4,16 @@ from pathlib import Path
 
 import os
 import sys
+import shlex
 from io import StringIO
 import time
 
-base_header = "iter,env,gpu,cc,type,nbins,bulksize,input,edges,reduction"
-reduction = 2
-cc = "75"
-edges_list = ["-e"]
-types="USM"
+base_header = "iter,env,gpu,cc,type,nbins,bulksize,input,edges,blocksize"
+edges_list = ["", "-e"]
+blocksize=256
+cc = "86"
+# reduction = 2
+# types="USM"
 
 def run_nsys_benchmark(
     f, n, gpus, environs, bulksizes, nbins, input_files, output_file
@@ -23,27 +25,35 @@ def run_nsys_benchmark(
             for ei, e in enumerate(environs):
                 for bi, b in enumerate(bulksizes):
                     for nbi, nb in enumerate(nbins):
-                        for nif, ipf in enumerate(input_files):
-                            for edges in edges_list:
+                        for edges in edges_list:
+                            procs = []
+                            for nif, ipf in enumerate(input_files):
                                 input_file = f"{input_folder}/{ipf}"
                                 stem = Path(ipf).stem
                                 arg = f"-b{b} -h{nb} -f{input_file} {edges}"
                                 cmd = f"prun -v -np 1 -native '-C gpunode,{gpu} --gres=gpu:1'"
                                 nsys = "/cm/shared/apps/cuda12.3/toolkit/12.3/nsight-systems-2023.4.1/bin/nsys"
-                                print(f"{cmd} {nsys} profile -otemp {f} {arg}")
+                                print(*shlex.split(f"{cmd}", posix=False),
+                                     nsys, "profile", f"-otemp{nif}", "--force-overwrite=true", f, *arg.split())
 
                                 # Profile code with nsys
-                                profile = subprocess.run(
-                                    f"{cmd} {nsys} profile -otemp --force-overwrite=true {f} {arg}",
-                                    env={**os.environ, e: "1"},
-                                    stdout=subprocess.PIPE,
-                                    check=True,
-                                    shell=True,
+                                p = subprocess.Popen(
+                                    # [*shlex.split(f"{cmd}", posix=False),
+                                    #  nsys, "profile", f"-otemp{nif}", "--force-overwrite=true", f, *arg.split()],
+                                     [*[s.strip("'") for s in shlex.split(f"{cmd} {nsys} profile -o temp{nif} --force-overwrite=true {f} {arg}", posix=False)]],
+                                     env={**os.environ, e: "1"},
+                                    # stdout=subprocess.PIPE,
+                                    # check=True,
+                                    # shell=True,
                                 )
+                                procs.append((p, nif, stem))
+
+                            for p, nif, stem in procs:
+                                p.wait()
 
                                 # Gather statistics
                                 result = subprocess.run(
-                                    f"{cmd} {nsys} stats temp.nsys-rep --force-export=true --format=csv",
+                                    f"{nsys} stats temp{nif}.nsys-rep --force-export=true --format=csv",
                                     stdout=subprocess.PIPE,
                                     check=True,
                                     shell=True,
@@ -66,7 +76,7 @@ def run_nsys_benchmark(
                                         header = output[4].split("\n")[1]
                                         file_handler.write(f"{base_header},{header}\n")
 
-                                out_base = f"{iter},{e},{gpu},{cc},{types},{nb},{b},{input_file},{'True' if edges != '' else 'False'},{reduction}"
+                                out_base = f"{iter},{e},{gpu},{cc},{nb},{b},{stem},{'True' if edges != '' else 'False'},{blocksize}"
                                 with open(
                                     f"{output_file}/api",
                                     "a",
@@ -102,52 +112,76 @@ def run_benchmark(f, n, gpus, environs, bulksizes, nbins, input_files, output_fi
             )
 
     with open(output_file, "a") as file_handler, open(
-        f"{output_file}-diff", "w"
+        f"{output_file}-diff", "a"
     ) as diff_result:
         for gpu in gpus:
             for iter in range(n):
                 for ei, e in enumerate(environs):
                     for bi, b in enumerate(bulksizes):
                         for nbi, nb in enumerate(nbins):
-                            for nif, ipf in enumerate(input_files):
-                                for edges in edges_list:
+                            for edges in edges_list:
+                                procs = []
+                                for nif, ipf in enumerate(input_files):
                                     input_file = f"{input_folder}/{ipf}"
                                     stem = Path(ipf).stem
                                     cmd = f"prun -v -np 1 -native '-C gpunode,{gpu} --gres=gpu:1'"
                                     arg = f"-b{b} -h{nb} -f{input_file} {edges} -w"
                                     print(f"{cmd} {f} {arg}")
 
-                                    r = subprocess.run(
-                                        f"{cmd} {f} {arg}",
+                                    p = subprocess.Popen(
+                                        [*[s.strip("'") for s in shlex.split(f"{cmd} {f} {arg}", posix=False)]],
                                         env={**os.environ, e: "1"},
-                                        check=True,
                                         stdout=subprocess.PIPE,
-                                        shell=True,
+                                        # check=True,
+                                        # shell=True,
                                     )
+                                    procs.append((p, stem))
 
-                                    output = (
-                                        r.stdout.decode("utf-8").strip().split("\n")
-                                    )
+                                for p, stem in procs:
+                                    output, stderr = p.communicate()
 
-                                    times = [o.split(":")[1] for o in output]
-                                    out_base = f"{iter},{e},{gpu},{cc},{types},{nb},{b},{input_file},{'True' if edges != '' else 'False'},{reduction}"
-                                    file_handler.write(
-                                        f"{out_base},{','.join(times)}\n"
-                                    )
-                                    file_handler.flush()
+                                    if stderr:
+                                        print("JOB FAILED:")
+                                        print(stderr)
+                                    else:
+                                        output = output.decode("utf-8").strip().split("\n")
+                                        times = [o.split(":")[1] for o in output]
+                                        out_base = f"{iter},{e},{gpu},{cc},{nb},{b},{stem},{'True' if edges != '' else 'False'},{blocksize}"
+                                        file_handler.write(
+                                            f"{out_base},{','.join(times)}\n"
+                                        )
+                                        file_handler.flush()
 
-                                    diff_result.write(f"{ipf}\n")
-                                    subprocess.run(
-                                        [
-                                            "diff",
-                                            f"{stem}_h{nb}_e{'1' if edges != '' else '0'}.out",
-                                            f"{input_folder}/expected/{stem}_h{nb}_e{'1' if edges != '' else '0'}",
-                                        ],
-                                        check=False,
-                                        stdout=diff_result,
-                                        stderr=diff_result,
-                                    )
-                                    diff_result.flush()
+                                        r_file = f"{stem}_h{nb}_e{'1' if edges != '' else '0'}"
+                                        print(f"zstd --rm -f -o {r_file}.out"),
+                                        subprocess.run(
+                                            f"zstd --rm -f -o {r_file}  {r_file}.out",
+                                            check=True,
+                                            shell=True,
+                                        )
+
+                                        diff_result.write(f"{out_base}\n")
+                                        subprocess.run(
+                                            [
+                                                "diff",
+                                                f"{r_file}",
+                                                f"{input_folder}/expected/{r_file}",
+                                            ],
+                                            check=False,
+                                            stdout=diff_result,
+                                            stderr=diff_result,
+                                        )
+                                        diff_result.flush()
+
+                                        # subprocess.run(
+                                        #     [
+                                        #         "rm",
+                                        #         "-rf",
+                                        #         f"{r_file}",
+                                        #     ],
+                                        #     check=False
+                                        # )
+
 
 
 if __name__ == "__main__":
@@ -158,47 +192,68 @@ if __name__ == "__main__":
 
     n = 5
     nbins = [
-#        1,
-        # 2,
-        # 5,
-#       10,
-        # 20,
-        # 50,
-#       100,
-        # 500,
+        #       1,
+        #       2,
+        #       5,
+        10,
+        #       20,
+        #       50,
+        #       100,
+        #       500,
         1000,
-        # 5000,
-        # 10000,
-        # 50000,
+        #       5000,
+        #       10000,
+        #       50000,
+        100000,   # 100K
+        10000000, # 10M
     ]
 
     bulksizes = [
-        # 1,
+            #    1,
         # 2,
         # 4,
-        # 8,
+            #    8,
         # 16,
         # 32,
-        # 64,
+            #    64,
         # 128,
         # 256,
-        # 512,
+            #    512,
         # 1024,
         # 2048,
-        # 4096,
-        # 8192,
-        # 16384,
+            #    4096,
+
+        8192,
+        16384,
         32768,
-        # 65536,
-        # 131072,
-        # 262144,
+        65536,
+        131072,
+        262144,
+        2097152,
+        16777216,
+        134217728,
     ]
 
     input_files = [
-        "doubles_uniform_50000000.root",  # 50M
-        "doubles_uniform_100000000.root",  # 100M
-        "doubles_uniform_500000000.root",  # 500M
-        "doubles_uniform_1000000000.root",  # 1B
+        # "doubles_uniform_50000000.root",  # 50M
+        # "doubles_uniform_100000000.root",  # 100M
+        # "doubles_uniform_500000000.root",  # 500M
+        # "doubles_uniform_1000000000.root",  # 1B
+
+        # "doubles_constant-0.5_50000000.root",  # 50M
+        # "doubles_constant-0.5_100000000.root",  # 100M
+        # "doubles_constant-0.5_500000000.root",  # 500M
+        # "doubles_constant-0.5_1000000000.root",  # 1B
+
+        "doubles_normal-0.4-0.1_50000000.root",  # 50M
+        "doubles_normal-0.4-0.1_100000000.root",  # 100M
+        "doubles_normal-0.4-0.1_500000000.root",  # 500M
+        "doubles_normal-0.4-0.1_1000000000.root",  # 1B
+
+        # "doubles_normal-0.7-0.01_50000000.root",  # 50M
+        # "doubles_normal-0.7-0.01_100000000.root",  # 100M
+        # "doubles_normal-0.7-0.01_500000000.root",  # 500M
+        # "doubles_normal-0.7-0.01_1000000000.root",  # 1B
     ]
 
     gpus = [
@@ -220,15 +275,15 @@ if __name__ == "__main__":
     print(f"writing results to {output_folder}/{output_file}...")
 
     run_benchmark(
-      f,
-      n,
-      gpus,
-      environs,
-      bulksizes,
-      nbins,
-      input_files,
-      f"{output_folder}/{output_file}",
-    )
+        f,
+        n,
+        gpus,
+        environs,
+        bulksizes,
+        nbins,
+        input_files,
+        f"{output_folder}/{output_file}",
+   )
 
     run_nsys_benchmark(
         f,
