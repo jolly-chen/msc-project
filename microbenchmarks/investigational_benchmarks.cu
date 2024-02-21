@@ -97,12 +97,14 @@ inline long long BinarySearch(long long n, const T *array, T value)
 }
 
 template <typename T>
-__global__ void BinarySearchGPU(size_t n, const T *array, const T *vals)
+__global__ void BinarySearchGPU(size_t n, const T *array, T *vals, const int repetitions, T *dummy)
 {
-   const T *pind;
    unsigned int tid = threadIdx.x + blockDim.x * blockIdx.x;
+   const T* pind;
+   for (int i = 0; i < repetitions; i++)
+      pind = thrust::lower_bound(thrust::seq, array, array + n, vals[tid]);
 
-   pind = thrust::lower_bound(thrust::seq, array, array + n, vals[tid]);
+   if (dummy) *dummy  = *pind;
 }
 
 
@@ -180,7 +182,7 @@ inline long long LinearSearch(T *arr, long long n, T val) {
 // prun -np 1 -v  likwid-pin -c C0:0  ./gbenchmark_evaluation --benchmark_filteLinear --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true  &>> out
 static void BM_LinearSearch(benchmark::State &state) {
     long long bin;
-    long long repetitions = 1000;
+    constexpr long long repetitions = 1000;
     int nbins = state.range(0) / sizeof(double);  // Increasing histogram size
     double val = nbins * (state.range(1) / 4.);
 
@@ -284,9 +286,8 @@ __global__ void ExcludeUOverflowKernel(int *bins, double *weights, int *nBinsAxi
 //    })->Unit(benchmark::kMillisecond);
 
 static void BM_BinarySearchConstantGPU(benchmark::State &state) {
-
-   long long repetitions = 1000;
-   int nbins = state.range(0) / sizeof(double);  // Increasing histogram size
+   constexpr long long repetitions = 1;
+   long nbins = state.range(0) / sizeof(double);  // Increasing histogram size
    size_t bulkSize = state.range(1);
    int blockSize = state.range(2);
    int numBlocks = bulkSize % blockSize == 0 ? bulkSize / blockSize : bulkSize / blockSize + 1;
@@ -309,16 +310,14 @@ static void BM_BinarySearchConstantGPU(benchmark::State &state) {
    cudaEventCreate(&start);
    cudaEventCreate(&stop);
    for (auto _ : state) {
-      for (int n = 0; n < repetitions; n++) {
-         cudaEventRecord(start);
-         BinarySearchGPU<<<numBlocks, blockSize>>>(nbins, d_binedges, d_vals);
-         cudaEventRecord(stop);
+      cudaEventRecord(start);
+      BinarySearchGPU<<<numBlocks, blockSize>>>(nbins, d_binedges, d_vals, repetitions, static_cast<double*>(0));
+      cudaEventRecord(stop);
 
-         cudaEventSynchronize(stop);
-         float elapsed_milliseconds = 0;
-         cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
-         state.SetIterationTime(elapsed_milliseconds);
-      }
+      cudaEventSynchronize(stop);
+      float elapsed_milliseconds;
+      cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
+      state.SetIterationTime(elapsed_milliseconds);
    }
 
    state.counters["repetitions"] = repetitions;
@@ -335,12 +334,13 @@ BENCHMARK(BM_BinarySearchConstantGPU)
                   benchmark::CreateRange(32, 1024, /*multi=*/2), // blocksize
                   {0, 2, 4},  // Args only accepts integer, so this is a hacky way to get [0, 0.25, 0.5, 0.75, 1]
    })
+   // ->Args({67108864, 32768, 256, 0})
    ->Unit(benchmark::kMillisecond)
    ->UseManualTime();
 
 
 static void BM_BinarySearchRandomGPU(benchmark::State &state) {
-   long long repetitions = 1000;
+   constexpr long long repetitions = 1;
    long nbins = state.range(0) / sizeof(double);  // Increasing histogram size
    size_t bulkSize = state.range(1);
    int blockSize = state.range(2);
@@ -365,16 +365,14 @@ static void BM_BinarySearchRandomGPU(benchmark::State &state) {
    cudaEventCreate(&start);
    cudaEventCreate(&stop);
    for (auto _ : state) {
-      for (int n = 0; n < repetitions; n++) {
-         cudaEventRecord(start);
-         BinarySearchGPU<<<numBlocks, blockSize>>>(nbins, d_binedges, d_vals);
-         cudaEventRecord(stop);
+      cudaEventRecord(start);
+      BinarySearchGPU<<<numBlocks, blockSize>>>(nbins, d_binedges, d_vals, repetitions, static_cast<double*>(0));
+      cudaEventRecord(stop);
 
-         cudaEventSynchronize(stop);
-         float elapsed_milliseconds = 0;
-         cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
-         state.SetIterationTime(elapsed_milliseconds);
-      }
+      cudaEventSynchronize(stop);
+      float elapsed_milliseconds;
+      cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
+      state.SetIterationTime(elapsed_milliseconds);
    }
 
    state.counters["repetitions"] = repetitions;
@@ -389,6 +387,7 @@ BENCHMARK(BM_BinarySearchRandomGPU)
                   benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
                   benchmark::CreateRange(32, 1024, /*multi=*/2), // blocksize
    })
+   // ->Args({67108864, 32768, 256})
    ->Unit(benchmark::kMillisecond)
    ->UseManualTime();
 
