@@ -43,5 +43,12 @@ create_project(TARGET generate_ntuple
                DEPENDENCIES ROOT::ROOTNTuple ROOT::Gpad ROOT::Core ROOT::MathCore)
 
 
+enable_language(CUDA)
+create_project(TARGET print_properties
+               SOURCES print_properties.cu
+               PACKAGES CUDA
+               EXTRA_LANGUAGES CUDA)
+
 add_subdirectory(benchmarks)
 add_subdirectory(microbenchmarks)
+

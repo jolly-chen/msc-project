@@ -1,0 +1,9 @@
+# Commit summary: Written in the present imperative mood.
+#                                                # <- 50 chars is here.
+
+# Commit message: Describe the 'why' behind the change. Wrap at 72 characters.
+#                                                                      # <- 72 chars is here.
+
+
+# Tell git to use this commit template by adding it to the repository configuration:
+#   git config commit.template .git-commit-template
