@@ -8,6 +8,7 @@
 #include <limits>
 #include <new>
 #include <thrust/binary_search.h>
+#include "benchmark_kernels.cuh"
 
 using Clock = std::chrono::steady_clock;
 using fsecs = std::chrono::duration<double>;
@@ -97,41 +98,26 @@ inline long long BinarySearch(long long n, const T *array, T value)
 }
 
 template <typename T>
-__global__ void BinarySearchGPU(size_t n, const T *array, T *vals, const int repetitions, T *dummy)
+__global__ void BinarySearchGPU(size_t n, const T *array, T *vals, T *dummy)
 {
    unsigned int tid = threadIdx.x + blockDim.x * blockIdx.x;
    const T* pind;
-   for (int i = 0; i < repetitions; i++)
-      pind = thrust::lower_bound(thrust::seq, array, array + n, vals[tid]);
+   pind = thrust::lower_bound(thrust::seq, array, array + n, vals[tid]);
 
    if (dummy) *dummy  = *pind;
 }
 
-
-// template <typename T>
-// __device__ size_t BinarySearchGPU(size_t n, const T *array, T value)
-// {
-//    const T *pind;
-
-//    pind = thrust::lower_bound(thrust::seq, array, array + n, value);
-//    if ((pind != array + n) && (*pind == value))
-//       return (pind - array);
-//    else
-//       return (pind - array - 1);
-// }
-
-// template<typename T>
-// __global__ void BinarySearchKernel(size_t n, size_t size, const t *array, T value)
-// {
-//    unsigned int tid = threadIdx.x + blockDim.x * blockIdx.x;
-//    unsigned int localTid = threadIdx.x;
-//    unsigned int stride = blockDim.x * gridDim.x; // total number of threads
-
-//    // Fill local histogram
-//    for (auto i = tid; i < n; i += stride) {
-//       auto r = CUDAHelpers::BinarySearch(size, array, value);
-//    }
-// }
+// For transform-reduce
+unsigned int nextPow2(unsigned int x)
+{
+   --x;
+   x |= x >> 1;
+   x |= x >> 2;
+   x |= x >> 4;
+   x |= x >> 8;
+   x |= x >> 16;
+   return ++x;
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -178,8 +164,8 @@ inline long long LinearSearch(T *arr, long long n, T val) {
     return -1;
 }
 
-// prun -np 1 -v  likwid-pin -c C0:0  ./gbenchmark_evaluation --benchmark_filter=Linear --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true --benchmark_format=json > das6-cpu/gbenchmark_evaluation.json
-// prun -np 1 -v  likwid-pin -c C0:0  ./gbenchmark_evaluation --benchmark_filteLinear --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true  &>> out
+// prun -np 1 -v  likwid-pin -c C0:0  ./investigational_benchmarks --benchmark_filter=Linear --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true --benchmark_format=json > das6-cpu/gbenchmark_evaluation.json
+// prun -np 1 -v  likwid-pin -c C0:0  ./investigational_benchmarks --benchmark_filteLinear --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true  &>> out
 static void BM_LinearSearch(benchmark::State &state) {
     long long bin;
     constexpr long long repetitions = 1000;
@@ -207,85 +193,37 @@ BENCHMARK(BM_LinearSearch)
     ->Unit(benchmark::kMillisecond);
 
 
-// prun -np 1 -v likwid-pin -c  C0:0 ./cpu-microbenchmarks --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true --benchmark_format=json > das6-cpu/cpu_microbenchmarks.json
-// static void BM_BinarySearch(benchmark::State &state) {
-//    long long bin;
-//    long long repetitions = 1000000;
-//    int nbins = state.range(0) / sizeof(double);  // Increasing histogram size
-//    // double val = nbins; // Last element
-//    double val = nbins * (state.range(1) / 4.);
+// prun -np 1 -v likwid-pin -c  C0:0 ./cpu-microbenchmarks --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true --benchmark_format=json > das6-cpu/binsearch_cpu.json
+static void BM_BinarySearch(benchmark::State &state) {
+   long long bin;
+   long long repetitions = 1000000;
+   int nbins = state.range(0) / sizeof(double);  // Increasing histogram size
+   // double val = nbins; // Last element
+   double val = nbins * (state.range(1) / 4.);
 
-//    AlignedVector<double, 64> binedges(nbins);
-//    auto data = binedges.data();
-//    for (auto i = 0; i < nbins; i++) binedges[i] = i;
+   AlignedVector<double, 64> binedges(nbins);
+   auto data = binedges.data();
+   for (auto i = 0; i < nbins; i++) binedges[i] = i;
 
-//    for (auto _ : state) {
-//       for (int n = 0; n < repetitions; n++) {
-//          bin = BinarySearch(nbins, data, val);
-//       }
-//    }
-
-//    state.counters["repetitions"] = repetitions;
-//    state.counters["nbins"] = nbins;
-//    state.counters["val"] = val;
-//    state.counters["bin"] = bin;
-// }
-// BENCHMARK(BM_BinarySearch)
-//    ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2),
-//                   {0, 1, 2, 3, 4}}) // Args only accepts integer, so this is a hacky way to get [0, 0.5, 1]
-//    ->Unit(benchmark::kMillisecond);
-
-
-// Nullify weights of under/overflow bins to exclude them from stats
-template <unsigned int Dim, unsigned int BlockSize>
-__global__ void ExcludeUOverflowKernel(int *bins, double *weights, int *nBinsAxis, size_t bulkSize)
-{
-   unsigned int tid = threadIdx.x + blockDim.x * blockIdx.x;
-   unsigned int stride = blockDim.x * gridDim.x;
-
-   for (auto i = tid; i < bulkSize * Dim; i += stride) {
-      if (bins[i] <= 0 || bins[i] >= nBinsAxis[i / bulkSize] - 1) {
-         weights[i % bulkSize] = 0.;
+   for (auto _ : state) {
+      for (int n = 0; n < repetitions; n++) {
+         bin = BinarySearch(nbins, data, val);
       }
    }
+
+   state.counters["repetitions"] = repetitions;
+   state.counters["nbins"] = nbins;
+   state.counters["val"] = val;
+   state.counters["bin"] = bin;
 }
+BENCHMARK(BM_BinarySearch)
+   ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2),
+                  {0, 1, 2, 3, 4}}) // Args only accepts integer, so this is a hacky way to get [0, 0.5, 1]
+   ->Unit(benchmark::kMillisecond);
 
-// prun -np 1 -v likwid-pin -c  C0:0 ./cpu-microbenchmarks --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true --benchmark_format=json > das6-cpu/cpu_microbenchmarks.json
-// static void BM_BinarySearchConstantGPU(benchmark::State &state) {
-//    long long bin;
-//    long long repetitions = 1000000;
-//    int nbins = state.range(0) / sizeof(double);  // Increasing histogram size
-//    double val = nbins * (state.range(1) / 4.);
-//    int blocksize = state.range(3);
 
-//    AlignedVector<double, 64> binedges(nbins);
-//    auto data = binedges.data();
-//    for (auto i = 0; i < nbins; i++) binedges[i] = i;
-
-//    double *d_binedges;
-//    ERRCHECK(cudaMalloc((void **)&d_binedges, nbins * sizeof(double)));
-//    ERRCHECK(cudaMemcpy(d_binedges, binedges.data(), nbins * sizeof(double), cudaMemcpyHostToDevice));
-
-//    for (auto _ : state) {
-//       for (int n = 0; n < repetitions; n++) {
-//          BinarySearchGPU<<<1, 1>>>(nbins, d_binedges, val);
-//          cudaDeviceSynchronize();
-//       }
-//    }
-
-//    state.counters["repetitions"] = repetitions;
-//    state.counters["nbins"] = nbins;
-//    state.counters["val"] = val;
-//    // state.counters["numblocks"] = val;
-//    // state.counters["blocksize"] = val;
-// }
-// BENCHMARK(BM_BinarySearchConstantGPU)
-//    ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2),
-//                   {0, 1, 2, 3, 4},  // Args only accepts integer, so this is a hacky way to get [0, 0.25, 0.5, 0.75, 1]
-//                   // benchmark::CreateRange(1, 1024, /*multi=*/2)}
-//    })->Unit(benchmark::kMillisecond);
-
-static void BM_BinarySearchConstantGPU(benchmark::State &state) {
+//  prun -np 1 -v -native '-C gpunode,A4000 --gres=gpu:1' investigational_benchmarks --benchmark_filter=BinarySearchGPU --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_counters_tabular=true  --benchmark_format=json > das6/binarysearch_gpu.json
+static void BM_BinarySearchGPUConstant(benchmark::State &state) {
    constexpr long long repetitions = 1;
    long nbins = state.range(0) / sizeof(double);  // Increasing histogram size
    size_t bulkSize = state.range(1);
@@ -306,12 +244,17 @@ static void BM_BinarySearchConstantGPU(benchmark::State &state) {
    ERRCHECK(cudaMalloc((void **)&d_binedges, nbins * sizeof(double)));
    ERRCHECK(cudaMemcpy(d_binedges, binedges.data(), nbins * sizeof(double), cudaMemcpyHostToDevice));
 
+   //warmup
+   BinarySearchGPU<<<numBlocks, blockSize>>>(nbins, d_binedges, d_vals, static_cast<double*>(0));
+
    cudaEvent_t start, stop;
    cudaEventCreate(&start);
    cudaEventCreate(&stop);
    for (auto _ : state) {
       cudaEventRecord(start);
-      BinarySearchGPU<<<numBlocks, blockSize>>>(nbins, d_binedges, d_vals, repetitions, static_cast<double*>(0));
+      for (auto i = 0; i < repetitions; i++) {
+         BinarySearchGPU<<<numBlocks, blockSize>>>(nbins, d_binedges, d_vals, static_cast<double*>(0));
+      }
       cudaEventRecord(stop);
 
       cudaEventSynchronize(stop);
@@ -327,19 +270,22 @@ static void BM_BinarySearchConstantGPU(benchmark::State &state) {
    state.counters["numblocks"] = numBlocks;
    state.counters["blocksize"] = blockSize;
    ERRCHECK(cudaFree(d_binedges));
+   ERRCHECK(cudaFree(d_vals));
+   ERRCHECK(cudaEventDestroy(start));
+   ERRCHECK(cudaEventDestroy(stop));
 }
-BENCHMARK(BM_BinarySearchConstantGPU)
-   ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
-                  benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
-                  benchmark::CreateRange(32, 1024, /*multi=*/2), // blocksize
-                  {0, 2, 4},  // Args only accepts integer, so this is a hacky way to get [0, 0.25, 0.5, 0.75, 1]
-   })
-   // ->Args({67108864, 32768, 256, 0})
+BENCHMARK(BM_BinarySearchGPUConstant)
+   // ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
+   //                benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
+   //                benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
+   //                {0, 2, 4},  // Args only accepts integer, so this is a hacky way to get [0, 0.25, 0.5, 0.75, 1]
+   // })
+   ->Args({268435456, 262144, 256})
    ->Unit(benchmark::kMillisecond)
    ->UseManualTime();
 
 
-static void BM_BinarySearchRandomGPU(benchmark::State &state) {
+static void BM_BinarySearchGPURandom(benchmark::State &state) {
    constexpr long long repetitions = 1;
    long nbins = state.range(0) / sizeof(double);  // Increasing histogram size
    size_t bulkSize = state.range(1);
@@ -361,12 +307,17 @@ static void BM_BinarySearchRandomGPU(benchmark::State &state) {
    ERRCHECK(cudaMalloc((void **)&d_binedges, nbins * sizeof(double)));
    ERRCHECK(cudaMemcpy(d_binedges, binedges.data(), nbins * sizeof(double), cudaMemcpyHostToDevice));
 
+   //warmup
+   BinarySearchGPU<<<numBlocks, blockSize>>>(nbins, d_binedges, d_vals, static_cast<double*>(0));
+
    cudaEvent_t start, stop;
    cudaEventCreate(&start);
    cudaEventCreate(&stop);
    for (auto _ : state) {
       cudaEventRecord(start);
-      BinarySearchGPU<<<numBlocks, blockSize>>>(nbins, d_binedges, d_vals, repetitions, static_cast<double*>(0));
+      for (auto i = 0; i < repetitions; i++) {
+         BinarySearchGPU<<<numBlocks, blockSize>>>(nbins, d_binedges, d_vals, static_cast<double*>(0));
+      }
       cudaEventRecord(stop);
 
       cudaEventSynchronize(stop);
@@ -381,13 +332,170 @@ static void BM_BinarySearchRandomGPU(benchmark::State &state) {
    state.counters["numblocks"] = numBlocks;
    state.counters["blocksize"] = blockSize;
    ERRCHECK(cudaFree(d_binedges));
+   ERRCHECK(cudaFree(d_vals));
+   ERRCHECK(cudaEventDestroy(start));
+   ERRCHECK(cudaEventDestroy(stop));
 }
-BENCHMARK(BM_BinarySearchRandomGPU)
+BENCHMARK(BM_BinarySearchGPURandom)
+   // ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
+   //                benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
+   //                benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
+   // })
+   ->Args({268435456, 262144, 256})
+   ->Unit(benchmark::kMillisecond)
+   ->UseManualTime();
+
+static void BM_HistogramGPU(benchmark::State &state) {
+   constexpr long long repetitions = 10;
+   long nbins = state.range(0) / sizeof(double);  // Increasing histogram size
+   size_t bulkSize = state.range(1);
+   int blockSize = state.range(2);
+   bool gen_random = state.range(3) == 1 ? true : false;
+   bool global = state.range(4) == 1 ? true : false;
+   int numBlocks = bulkSize % blockSize == 0 ? bulkSize / blockSize : bulkSize / blockSize + 1;
+   auto smemSize = nbins * sizeof(double);
+
+   int maxSmemSize;
+   cudaDeviceGetAttribute(&maxSmemSize, cudaDevAttrMaxSharedMemoryPerBlock, 0);
+
+   double *d_histogram;
+   ERRCHECK(cudaMalloc((void **)&d_histogram, nbins * sizeof(double)));
+
+   AlignedVector<int, 64> coords(bulkSize);
+   if (gen_random) {
+      std::random_device rd;  // a seed source for the random number engine
+      std::mt19937 gen(rd()); // mersenne_twister_engine seeded with rd()
+      std::uniform_int_distribution<> distrib(0, nbins-1);
+      for (auto i = 0; i < bulkSize; i++) coords[i] = distrib(gen);
+   } else {
+      for (auto i = 0; i < bulkSize; i++) coords[i] = 0;
+   }
+   int *d_coords;
+   ERRCHECK(cudaMalloc((void **)&d_coords, bulkSize * sizeof(int)));
+   ERRCHECK(cudaMemcpy(d_coords, coords.data(), bulkSize * sizeof(int), cudaMemcpyHostToDevice));
+
+   AlignedVector<double, 64> weights(bulkSize, 1);
+   double *d_weights;
+   ERRCHECK(cudaMalloc((void **)&d_weights, bulkSize * sizeof(double)));
+   ERRCHECK(cudaMemcpy(d_weights, weights.data(), bulkSize * sizeof(double), cudaMemcpyHostToDevice));
+
+   // Warmup to load the kernel
+   if (global)
+      HistogramGlobal<<<numBlocks, blockSize>>>(d_histogram, d_coords, d_weights, 0);
+   else
+      HistogramLocal<<<numBlocks, blockSize>>>(d_histogram, 0, d_coords, d_weights, 0);
+      ERRCHECK(cudaPeekAtLastError());
+
+   float elapsed_milliseconds;
+   cudaEvent_t start, stop;
+   cudaEventCreate(&start);
+   cudaEventCreate(&stop);
+
+   if (global) {
+      for (auto _ : state) {
+         cudaEventRecord(start);
+         for (auto i = 0; i < repetitions; i++)
+            HistogramGlobal<<<numBlocks, blockSize>>>(d_histogram, d_coords, d_weights, bulkSize);
+         cudaEventRecord(stop);
+         ERRCHECK(cudaPeekAtLastError());
+
+         cudaEventSynchronize(stop);
+         cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
+         state.SetIterationTime(elapsed_milliseconds);
+      }
+   } else {
+      if (smemSize < maxSmemSize) {
+         for (auto _ : state) {
+            cudaEventRecord(start);
+            for (auto i = 0; i < repetitions; i++)
+               HistogramLocal<<<numBlocks, blockSize, smemSize>>>(d_histogram, nbins, d_coords, d_weights, bulkSize);
+            cudaEventRecord(stop);
+            ERRCHECK(cudaPeekAtLastError());
+
+            cudaEventSynchronize(stop);
+            cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
+            state.SetIterationTime(elapsed_milliseconds);
+         }
+      } else {
+         state.SkipWithError("Does not fit in shared memory");
+      }
+   }
+
+   state.counters["repetitions"] = repetitions;
+   state.counters["nbins"] = nbins;
+   state.counters["bulksize"] = bulkSize;
+   state.counters["numblocks"] = numBlocks;
+   state.counters["blocksize"] = blockSize;
+   state.counters["random"] = gen_random ? 1 : 0;
+   state.counters["global"] = global ? 1 : 0;
+   ERRCHECK(cudaFree(d_histogram));
+   ERRCHECK(cudaFree(d_coords));
+   ERRCHECK(cudaFree(d_weights));
+   ERRCHECK(cudaEventDestroy(start));
+   ERRCHECK(cudaEventDestroy(stop));
+}
+BENCHMARK(BM_HistogramGPU)
    ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
                   benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
-                  benchmark::CreateRange(32, 1024, /*multi=*/2), // blocksize
+                  benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
+                  {0, 1},  // 0 = same bin, 1 = random
+                  {1, 0},  // global, local
    })
-   // ->Args({67108864, 32768, 256})
+   ->Unit(benchmark::kMillisecond)
+   ->UseManualTime();
+
+// prun -np 1 -v -native '-C gpunode,A4000 --gres=gpu:1' ./investigational_benchmarks --benchmark_filter=TransformReduceGPU --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_counters_tabular=true --benchmark_format=json > das6/transformreduce_gpu.json
+static void BM_TransformReduceGPU(benchmark::State &state) {
+   constexpr long long repetitions = 1000;
+   size_t bulkSize = state.range(0);
+   int blockSize = state.range(1);
+   int numThreads = (bulkSize < blockSize * 2) ? nextPow2((bulkSize + 1) / 2) : blockSize;
+   int numBlocks = (bulkSize + (numThreads * 2 - 1)) / (numThreads * 2);
+
+   AlignedVector<double, 64> data(bulkSize);
+   for (auto i = 0; i < bulkSize; i++) data[i] = i;
+   double *d_data;
+   ERRCHECK(cudaMalloc((void **)&d_data, bulkSize * sizeof(double)));
+   ERRCHECK(cudaMemcpy(d_data, data.data(), bulkSize * sizeof(double), cudaMemcpyHostToDevice));
+
+   double *d_out;
+   ERRCHECK(cudaMalloc((void **)&d_out, sizeof(double)));
+
+   // warmup
+   TransformReduce(numBlocks, blockSize, bulkSize, d_out, 0., true, Plus{}, Identity{}, d_data);
+
+   cudaEvent_t start, stop;
+   cudaEventCreate(&start);
+   cudaEventCreate(&stop);
+   for (auto _ : state) {
+      cudaEventRecord(start);
+      for (auto i = 0; i < repetitions; i++) {
+         TransformReduce(numBlocks, blockSize, bulkSize, d_out, 0., true, Plus{}, Identity{}, d_data);
+      }
+      cudaEventRecord(stop);
+
+      cudaEventSynchronize(stop);
+      float elapsed_milliseconds;
+      cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
+      state.SetIterationTime(elapsed_milliseconds);
+   }
+
+   state.counters["repetitions"] = repetitions;
+   state.counters["bulksize"] = bulkSize;
+   state.counters["numblocks"] = numBlocks;
+   state.counters["numthreads"] = numThreads;
+   state.counters["blocksize"] = blockSize;
+   ERRCHECK(cudaFree(d_data));
+   ERRCHECK(cudaFree(d_out));
+   ERRCHECK(cudaEventDestroy(start));
+   ERRCHECK(cudaEventDestroy(stop));
+}
+BENCHMARK(BM_TransformReduceGPU)
+   ->ArgsProduct({
+      benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
+      benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
+      {0, 1},  // 0 = same bin, 1 = random
+   })
    ->Unit(benchmark::kMillisecond)
    ->UseManualTime();
 

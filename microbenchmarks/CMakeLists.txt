@@ -10,6 +10,7 @@ create_project(TARGET investigational_benchmarks
                PACKAGES benchmark CUDA
                DEPENDENCIES benchmark::benchmark benchmark::benchmark_main
                EXTRA_LANGUAGES CUDA)
+target_compile_options(investigational_benchmarks PUBLIC -Wno-pedantic)
 
 create_project(TARGET gpu-microbenchmarks
                SOURCES gpu-microbenchmarks.cu
