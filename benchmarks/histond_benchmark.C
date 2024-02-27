@@ -32,9 +32,10 @@ int main(int argc, char **argv)
    bool edges = false;
    bool write_result = false;
    char *file;
+   int numThreads = 1;
 
    int c;
-   while ((c = getopt(argc, argv, "b:h:f:vew")) != -1) {
+   while ((c = getopt(argc, argv, "b:h:f:vewt:")) != -1) {
       switch (c) {
       case 'b': bulkSize = std::stoul(optarg); break;
       case 'h': nbins = atoi(optarg); break;
@@ -42,6 +43,7 @@ int main(int argc, char **argv)
       case 'v': verbose = true; break;
       case 'e': edges = true; break;
       case 'w': write_result = true; break;
+      case 't': numThreads = atoi(optarg); break;
       default: std::cout << "Ignoring unknown parse returns: " << char(c) << std::endl;
       }
    }
@@ -50,6 +52,8 @@ int main(int argc, char **argv)
       printf("The parameters are not set!!!\n");
       return 1;
    }
+
+   ROOT::EnableImplicitMT(numThreads);
 
    TCanvas *cv;
    if (verbose) {
@@ -85,9 +89,10 @@ int main(int argc, char **argv)
    LIKWID_MARKER_INIT;
 #endif
 
+   auto h1 = df.Histo1D<double>(mdl, "Doubles");
+
    /// Benchmark START
    auto start = Clock::now();
-   auto h1 = df.Histo1D<double>(mdl, "Doubles");
    auto &result = h1.GetValue();
    auto end = Clock::now();
    /// Benchmark EbND
