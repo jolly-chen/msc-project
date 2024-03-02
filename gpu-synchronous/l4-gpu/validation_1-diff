@@ -1,0 +1,12 @@
+Binary files doubles_uniform_50000000_h10_e0 and /data/jolly/input/expected/doubles_uniform_50000000_h10_e0 differ
+0,CUDA_HIST,A4000,89,10,1,doubles_uniform_50000000,False,256
+Binary files doubles_uniform_100000000_h10_e0 and /data/jolly/input/expected/doubles_uniform_100000000_h10_e0 differ
+0,CUDA_HIST,A4000,89,10,1,doubles_uniform_100000000,False,256
+Binary files doubles_uniform_500000000_h10_e0 and /data/jolly/input/expected/doubles_uniform_500000000_h10_e0 differ
+0,CUDA_HIST,A4000,89,10,1,doubles_uniform_500000000,False,256
+Binary files doubles_uniform_1000000000_h10_e0 and /data/jolly/input/expected/doubles_uniform_1000000000_h10_e0 differ
+0,CUDA_HIST,A4000,89,10,1,doubles_uniform_1000000000,False,256
+Binary files doubles_constant-0.5_50000000_h10_e0 and /data/jolly/input/expected/doubles_constant-0.5_50000000_h10_e0 differ
+0,CUDA_HIST,A4000,89,10,1,doubles_constant-0.5_50000000,False,256
+Binary files doubles_constant-0.5_100000000_h10_e0 and /data/jolly/input/expected/doubles_constant-0.5_100000000_h10_e0 differ
+0,CUDA_HIST,A4000,89,10,1,doubles_constant-0.5_100000000,False,256
