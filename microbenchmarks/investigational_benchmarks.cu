@@ -121,6 +121,10 @@ unsigned int nextPow2(unsigned int x)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+//
+// CPU
+//
+
 static void BM_PauseOverhead(benchmark::State &state) {
     for (auto _ : state) {
         state.PauseTiming();
@@ -168,7 +172,7 @@ inline long long LinearSearch(T *arr, long long n, T val) {
 // prun -np 1 -v  likwid-pin -c C0:0  ./investigational_benchmarks --benchmark_filteLinear --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true  &>> out
 static void BM_LinearSearch(benchmark::State &state) {
     long long bin;
-    constexpr long long repetitions = 1000;
+    constexpr long long repetitions = 100;
     int nbins = state.range(0) / sizeof(double);  // Increasing histogram size
     double val = nbins * (state.range(1) / 4.);
 
@@ -221,6 +225,9 @@ BENCHMARK(BM_BinarySearch)
                   {0, 1, 2, 3, 4}}) // Args only accepts integer, so this is a hacky way to get [0, 0.5, 1]
    ->Unit(benchmark::kMillisecond);
 
+//
+// GPU
+//
 
 //  prun -np 1 -v -native '-C gpunode,A4000 --gres=gpu:1' investigational_benchmarks --benchmark_filter=BinarySearchGPU --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_counters_tabular=true  --benchmark_format=json > das6/binarysearch_gpu.json
 static void BM_BinarySearchGPUConstant(benchmark::State &state) {
@@ -260,7 +267,7 @@ static void BM_BinarySearchGPUConstant(benchmark::State &state) {
       cudaEventSynchronize(stop);
       float elapsed_milliseconds;
       cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
-      state.SetIterationTime(elapsed_milliseconds);
+      state.SetIterationTime(elapsed_milliseconds/1e3); // Iteration time needs to be set in seconds
    }
 
    state.counters["repetitions"] = repetitions;
@@ -275,14 +282,14 @@ static void BM_BinarySearchGPUConstant(benchmark::State &state) {
    ERRCHECK(cudaEventDestroy(stop));
 }
 BENCHMARK(BM_BinarySearchGPUConstant)
-   // ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
-   //                benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
-   //                benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
-   //                {0, 2, 4},  // Args only accepts integer, so this is a hacky way to get [0, 0.25, 0.5, 0.75, 1]
-   // })
-   ->Args({268435456, 262144, 256})
-   ->Unit(benchmark::kMillisecond)
-   ->UseManualTime();
+   ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
+                  benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
+                  benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
+                  {0, 2, 4},  // Args only accepts integer, so this is a hacky way to get [0, 0.25, 0.5, 0.75, 1]
+   })
+   ->Unit(benchmark::kMicrosecond)
+   ->UseManualTime()
+   ->MinTime(1e-3); // repeat until at least a millisecond since the resolution of cudaEventRecord is 0.5 us
 
 
 static void BM_BinarySearchGPURandom(benchmark::State &state) {
@@ -323,7 +330,7 @@ static void BM_BinarySearchGPURandom(benchmark::State &state) {
       cudaEventSynchronize(stop);
       float elapsed_milliseconds;
       cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
-      state.SetIterationTime(elapsed_milliseconds);
+      state.SetIterationTime(elapsed_milliseconds/1e3);  // Iteration time needs to be set in seconds
    }
 
    state.counters["repetitions"] = repetitions;
@@ -337,16 +344,17 @@ static void BM_BinarySearchGPURandom(benchmark::State &state) {
    ERRCHECK(cudaEventDestroy(stop));
 }
 BENCHMARK(BM_BinarySearchGPURandom)
-   // ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
-   //                benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
-   //                benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
-   // })
-   ->Args({268435456, 262144, 256})
-   ->Unit(benchmark::kMillisecond)
-   ->UseManualTime();
+   ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
+                  benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
+                  benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
+   })
+   ->Unit(benchmark::kMicrosecond)
+   ->UseManualTime()
+   ->MinTime(1e-3); // repeat until at least a millisecond since the resolution of cudaEventRecord is 0.5 us
 
+// prun -np 1 -v -native '-C gpunode,A4000 --gres=gpu:1' investigational_benchmarks --benchmark_filter=Histogram --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_counters_tabular=true  --benchmark_format=json > das6/addbincontent_gpu.json
 static void BM_HistogramGPU(benchmark::State &state) {
-   constexpr long long repetitions = 10;
+   constexpr long long repetitions = 1000;
    long nbins = state.range(0) / sizeof(double);  // Increasing histogram size
    size_t bulkSize = state.range(1);
    int blockSize = state.range(2);
@@ -401,7 +409,7 @@ static void BM_HistogramGPU(benchmark::State &state) {
 
          cudaEventSynchronize(stop);
          cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
-         state.SetIterationTime(elapsed_milliseconds);
+         state.SetIterationTime(elapsed_milliseconds/1e3);  // Iteration time needs to be set in seconds
       }
    } else {
       if (smemSize < maxSmemSize) {
@@ -414,7 +422,7 @@ static void BM_HistogramGPU(benchmark::State &state) {
 
             cudaEventSynchronize(stop);
             cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
-            state.SetIterationTime(elapsed_milliseconds);
+            state.SetIterationTime(elapsed_milliseconds/1e3);  // Iteration time needs to be set in seconds
          }
       } else {
          state.SkipWithError("Does not fit in shared memory");
@@ -436,17 +444,18 @@ static void BM_HistogramGPU(benchmark::State &state) {
 }
 BENCHMARK(BM_HistogramGPU)
    ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
-                  benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
+                  benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulksize
                   benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
-                  {0, 1},  // 0 = same bin, 1 = random
+                  {1, 0},  // 1 = random, 0 = constant
                   {1, 0},  // global, local
    })
-   ->Unit(benchmark::kMillisecond)
-   ->UseManualTime();
+   ->Unit(benchmark::kMicrosecond)
+   ->UseManualTime()
+   ->MinTime(1e-3); // repeat until at least a millisecond since the resolution of cudaEventRecord is 0.5 us
 
 // prun -np 1 -v -native '-C gpunode,A4000 --gres=gpu:1' ./investigational_benchmarks --benchmark_filter=TransformReduceGPU --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_counters_tabular=true --benchmark_format=json > das6/transformreduce_gpu.json
 static void BM_TransformReduceGPU(benchmark::State &state) {
-   constexpr long long repetitions = 1000;
+   constexpr long long repetitions = 10000;
    size_t bulkSize = state.range(0);
    int blockSize = state.range(1);
    int numThreads = (bulkSize < blockSize * 2) ? nextPow2((bulkSize + 1) / 2) : blockSize;
@@ -477,7 +486,7 @@ static void BM_TransformReduceGPU(benchmark::State &state) {
       cudaEventSynchronize(stop);
       float elapsed_milliseconds;
       cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
-      state.SetIterationTime(elapsed_milliseconds);
+      state.SetIterationTime(elapsed_milliseconds/1e3);
    }
 
    state.counters["repetitions"] = repetitions;
@@ -494,10 +503,10 @@ BENCHMARK(BM_TransformReduceGPU)
    ->ArgsProduct({
       benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
       benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
-      {0, 1},  // 0 = same bin, 1 = random
    })
-   ->Unit(benchmark::kMillisecond)
-   ->UseManualTime();
+   ->Unit(benchmark::kMicrosecond)
+   ->UseManualTime()
+   ->MinTime(1e-3); // repeat until at least a millisecond since the resolution of cudaEventRecord is 0.5 us
 
 BENCHMARK_MAIN();
 
