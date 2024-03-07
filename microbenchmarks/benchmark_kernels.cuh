@@ -1,3 +1,19 @@
+#ifndef BENCHMARK_KERNELS_H
+#define BENCHMARK_KERNELS_H
+
+#include <sstream>
+#include <thrust/binary_search.h>
+
+#define ERRCHECK(err) __checkCudaErrors((err), __func__, __FILE__, __LINE__)
+inline static void __checkCudaErrors(cudaError_t error, std::string func, std::string file, int line)
+{
+   if (error != cudaSuccess) {
+      std::stringstream errMsg;
+      errMsg << func << "(), " << file + ":" << std::to_string(line) << " : " << cudaGetErrorString(error);
+      throw std::runtime_error(errMsg.str());
+   }
+}
+
 __global__ void HistogramLocal(double *histogram, int nbins, int *in, double *weights, size_t bulkSize)
 {
    extern __shared__ double sdata[];
@@ -284,3 +300,5 @@ void TransformReduce(std::size_t numBlocks, std::size_t blockSize, std::size_t n
       }
    }
 }
+
+#endif

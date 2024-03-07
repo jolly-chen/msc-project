@@ -1,19 +1,13 @@
-
-create_project(TARGET cpu_calibration
-               SOURCES cpu_calibration.cpp
-               PACKAGES benchmark
-               DEPENDENCIES benchmark::benchmark benchmark::benchmark_main)
-# target_link_libraries(cpu-microbenchmarks PUBLIC pfm)
-
 create_project(TARGET investigational_benchmarks
                SOURCES investigational_benchmarks.cu
                PACKAGES benchmark CUDA
                DEPENDENCIES benchmark::benchmark benchmark::benchmark_main
                EXTRA_LANGUAGES CUDA)
 target_compile_options(investigational_benchmarks PUBLIC -Wno-pedantic)
+# target_link_libraries(investigational_benchmarks PUBLIC pfm)
 
-create_project(TARGET gpu-microbenchmarks
-               SOURCES gpu-microbenchmarks.cu
+create_project(TARGET calibration_microbenchmarks
+               SOURCES calibration_microbenchmarks.cu
                PACKAGES benchmark CUDA
                DEPENDENCIES benchmark::benchmark benchmark::benchmark_main
                EXTRA_LANGUAGES CUDA)
