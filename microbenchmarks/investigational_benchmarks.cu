@@ -1,125 +1,11 @@
 #include <benchmark/benchmark.h>
-#include <chrono>
-#include <algorithm>
-#include <random>
-#include <thread>
-#include <iostream>
-#include <stdexcept>
-#include <limits>
-#include <new>
-#include <thrust/binary_search.h>
 #include "benchmark_kernels.cuh"
+#include "utils.h"
+#include <thread>
 
-using Clock = std::chrono::steady_clock;
-using fsecs = std::chrono::duration<double>;
-
-#define ERRCHECK(err) __checkCudaErrors((err), __func__, __FILE__, __LINE__)
-inline static void __checkCudaErrors(cudaError_t error, std::string func, std::string file, int line)
-{
-   if (error != cudaSuccess) {
-      fprintf(stderr, (func + "(), " + file + ":" + std::to_string(line)).c_str(), "%s", cudaGetErrorString(error));
-      throw std::bad_alloc();
-   }
-}
-
-
-/**
- * Returns aligned pointers when allocations are requested. Default alignment
- * is 64B = 512b, sufficient for AVX-512 and most cache line sizes.
- * Taken from: https://stackoverflow.com/questions/8456236/how-is-a-vectors-data-aligned
- *
- * @tparam ALIGNMENT_IN_BYTES Must be a positive power of 2.
- */
-template <typename ElementType, std::size_t ALIGNMENT_IN_BYTES = 64>
-class AlignedAllocator {
-private:
-   static_assert(ALIGNMENT_IN_BYTES >= alignof(ElementType),
-                 "Beware that types like int have minimum alignment requirements "
-                 "or access will result in crashes.");
-
-public:
-   using value_type = ElementType;
-   static std::align_val_t constexpr ALIGNMENT{ALIGNMENT_IN_BYTES};
-
-   /**
-    * This is only necessary because AlignedAllocator has a second template
-    * argument for the alignment that will make the default
-    * std::allocator_traits implementation fail during compilation.
-    * @see https://stackoverflow.com/a/48062758/2191065
-    */
-   template <class OtherElementType>
-   struct rebind {
-      using other = AlignedAllocator<OtherElementType, ALIGNMENT_IN_BYTES>;
-   };
-
-public:
-   constexpr AlignedAllocator() noexcept = default;
-
-   constexpr AlignedAllocator(const AlignedAllocator &) noexcept = default;
-
-   template <typename U>
-   constexpr AlignedAllocator(AlignedAllocator<U, ALIGNMENT_IN_BYTES> const &) noexcept
-   {
-   }
-
-   [[nodiscard]] ElementType *allocate(std::size_t nElementsToAllocate)
-   {
-      if (nElementsToAllocate > std::numeric_limits<std::size_t>::max() / sizeof(ElementType)) {
-         throw std::bad_array_new_length();
-      }
-
-      auto const nBytesToAllocate = nElementsToAllocate * sizeof(ElementType);
-      return reinterpret_cast<ElementType *>(::operator new[](nBytesToAllocate, ALIGNMENT));
-   }
-
-   void deallocate(ElementType *allocatedPointer, [[maybe_unused]] std::size_t nBytesAllocated)
-   {
-      /* According to the C++20 draft n4868 § 17.6.3.3, the delete operator
-       * must be called with the same alignment argument as the new expression.
-       * The size argument can be omitted but if present must also be equal to
-       * the one used in new. */
-      ::operator delete[](allocatedPointer, ALIGNMENT);
-   }
-};
-template<typename T, std::size_t ALIGNMENT_IN_BYTES = 64>
-using AlignedVector = std::vector<T, AlignedAllocator<T, ALIGNMENT_IN_BYTES> >;
-
-
-/// Binary search taken from ROOT
-template <typename T>
-inline long long BinarySearch(long long n, const T *array, T value)
-{
-   const T *pind;
-   pind = std::lower_bound(array, array + n, value);
-   if ((pind != array + n) && (*pind == value))
-      return (pind - array);
-   else
-      return (pind - array - 1);
-}
-
-template <typename T>
-__global__ void BinarySearchGPU(size_t n, const T *array, T *vals, T *dummy)
-{
-   unsigned int tid = threadIdx.x + blockDim.x * blockIdx.x;
-   const T* pind;
-   pind = thrust::lower_bound(thrust::seq, array, array + n, vals[tid]);
-
-   if (dummy) *dummy  = *pind;
-}
-
-// For transform-reduce
-unsigned int nextPow2(unsigned int x)
-{
-   --x;
-   x |= x >> 1;
-   x |= x >> 2;
-   x |= x >> 4;
-   x |= x >> 8;
-   x |= x >> 16;
-   return ++x;
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// CPU
+//
 
 static void BM_PauseOverhead(benchmark::State &state) {
     for (auto _ : state) {
@@ -168,7 +54,7 @@ inline long long LinearSearch(T *arr, long long n, T val) {
 // prun -np 1 -v  likwid-pin -c C0:0  ./investigational_benchmarks --benchmark_filteLinear --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true  &>> out
 static void BM_LinearSearch(benchmark::State &state) {
     long long bin;
-    constexpr long long repetitions = 1000;
+    constexpr long long repetitions = 100;
     int nbins = state.range(0) / sizeof(double);  // Increasing histogram size
     double val = nbins * (state.range(1) / 4.);
 
@@ -221,6 +107,9 @@ BENCHMARK(BM_BinarySearch)
                   {0, 1, 2, 3, 4}}) // Args only accepts integer, so this is a hacky way to get [0, 0.5, 1]
    ->Unit(benchmark::kMillisecond);
 
+//
+// GPU
+//
 
 //  prun -np 1 -v -native '-C gpunode,A4000 --gres=gpu:1' investigational_benchmarks --benchmark_filter=BinarySearchGPU --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_counters_tabular=true  --benchmark_format=json > das6/binarysearch_gpu.json
 static void BM_BinarySearchGPUConstant(benchmark::State &state) {
@@ -260,7 +149,7 @@ static void BM_BinarySearchGPUConstant(benchmark::State &state) {
       cudaEventSynchronize(stop);
       float elapsed_milliseconds;
       cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
-      state.SetIterationTime(elapsed_milliseconds);
+      state.SetIterationTime(elapsed_milliseconds/1e3); // Iteration time needs to be set in seconds
    }
 
    state.counters["repetitions"] = repetitions;
@@ -275,14 +164,14 @@ static void BM_BinarySearchGPUConstant(benchmark::State &state) {
    ERRCHECK(cudaEventDestroy(stop));
 }
 BENCHMARK(BM_BinarySearchGPUConstant)
-   // ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
-   //                benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
-   //                benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
-   //                {0, 2, 4},  // Args only accepts integer, so this is a hacky way to get [0, 0.25, 0.5, 0.75, 1]
-   // })
-   ->Args({268435456, 262144, 256})
-   ->Unit(benchmark::kMillisecond)
-   ->UseManualTime();
+   ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
+                  benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
+                  benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
+                  {0, 2, 4},  // Args only accepts integer, so this is a hacky way to get [0, 0.25, 0.5, 0.75, 1]
+   })
+   ->Unit(benchmark::kMicrosecond)
+   ->UseManualTime()
+   ->MinTime(1e-3); // repeat until at least a millisecond since the resolution of cudaEventRecord is 0.5 us
 
 
 static void BM_BinarySearchGPURandom(benchmark::State &state) {
@@ -323,7 +212,7 @@ static void BM_BinarySearchGPURandom(benchmark::State &state) {
       cudaEventSynchronize(stop);
       float elapsed_milliseconds;
       cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
-      state.SetIterationTime(elapsed_milliseconds);
+      state.SetIterationTime(elapsed_milliseconds/1e3);  // Iteration time needs to be set in seconds
    }
 
    state.counters["repetitions"] = repetitions;
@@ -337,16 +226,17 @@ static void BM_BinarySearchGPURandom(benchmark::State &state) {
    ERRCHECK(cudaEventDestroy(stop));
 }
 BENCHMARK(BM_BinarySearchGPURandom)
-   // ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
-   //                benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
-   //                benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
-   // })
-   ->Args({268435456, 262144, 256})
-   ->Unit(benchmark::kMillisecond)
-   ->UseManualTime();
+   ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
+                  benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
+                  benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
+   })
+   ->Unit(benchmark::kMicrosecond)
+   ->UseManualTime()
+   ->MinTime(1e-3); // repeat until at least a millisecond since the resolution of cudaEventRecord is 0.5 us
 
+// prun -np 1 -v -native '-C gpunode,A4000 --gres=gpu:1' investigational_benchmarks --benchmark_filter=Histogram --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_counters_tabular=true  --benchmark_format=json > das6/addbincontent_gpu.json
 static void BM_HistogramGPU(benchmark::State &state) {
-   constexpr long long repetitions = 10;
+   constexpr long long repetitions = 1000;
    long nbins = state.range(0) / sizeof(double);  // Increasing histogram size
    size_t bulkSize = state.range(1);
    int blockSize = state.range(2);
@@ -401,7 +291,7 @@ static void BM_HistogramGPU(benchmark::State &state) {
 
          cudaEventSynchronize(stop);
          cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
-         state.SetIterationTime(elapsed_milliseconds);
+         state.SetIterationTime(elapsed_milliseconds/1e3);  // Iteration time needs to be set in seconds
       }
    } else {
       if (smemSize < maxSmemSize) {
@@ -414,7 +304,7 @@ static void BM_HistogramGPU(benchmark::State &state) {
 
             cudaEventSynchronize(stop);
             cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
-            state.SetIterationTime(elapsed_milliseconds);
+            state.SetIterationTime(elapsed_milliseconds/1e3);  // Iteration time needs to be set in seconds
          }
       } else {
          state.SkipWithError("Does not fit in shared memory");
@@ -436,17 +326,18 @@ static void BM_HistogramGPU(benchmark::State &state) {
 }
 BENCHMARK(BM_HistogramGPU)
    ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
-                  benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
+                  benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulksize
                   benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
-                  {0, 1},  // 0 = same bin, 1 = random
+                  {1, 0},  // 1 = random, 0 = constant
                   {1, 0},  // global, local
    })
-   ->Unit(benchmark::kMillisecond)
-   ->UseManualTime();
+   ->Unit(benchmark::kMicrosecond)
+   ->UseManualTime()
+   ->MinTime(1e-3); // repeat until at least a millisecond since the resolution of cudaEventRecord is 0.5 us
 
 // prun -np 1 -v -native '-C gpunode,A4000 --gres=gpu:1' ./investigational_benchmarks --benchmark_filter=TransformReduceGPU --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_counters_tabular=true --benchmark_format=json > das6/transformreduce_gpu.json
 static void BM_TransformReduceGPU(benchmark::State &state) {
-   constexpr long long repetitions = 1000;
+   constexpr long long repetitions = 10000;
    size_t bulkSize = state.range(0);
    int blockSize = state.range(1);
    int numThreads = (bulkSize < blockSize * 2) ? nextPow2((bulkSize + 1) / 2) : blockSize;
@@ -477,7 +368,7 @@ static void BM_TransformReduceGPU(benchmark::State &state) {
       cudaEventSynchronize(stop);
       float elapsed_milliseconds;
       cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
-      state.SetIterationTime(elapsed_milliseconds);
+      state.SetIterationTime(elapsed_milliseconds/1e3);
    }
 
    state.counters["repetitions"] = repetitions;
@@ -494,10 +385,88 @@ BENCHMARK(BM_TransformReduceGPU)
    ->ArgsProduct({
       benchmark::CreateRange(32, 262144, /*multi=*/2), // Bulkszie
       benchmark::CreateRange(32, 1024, /*multi=*/2), // blockSize
-      {0, 1},  // 0 = same bin, 1 = random
    })
-   ->Unit(benchmark::kMillisecond)
-   ->UseManualTime();
+   ->Unit(benchmark::kMicrosecond)
+   ->UseManualTime()
+   ->MinTime(1e-3); // repeat until at least a millisecond since the resolution of cudaEventRecord is 0.5 us
+
+static void BM_DToH(benchmark::State &state)
+{
+   constexpr long long repetitions = 1;
+   auto nbytes = state.range(0);
+   bool pinned = state.range(1) == 1 ? true : false;
+
+   void *data;
+   if (pinned)
+      ERRCHECK(cudaMallocHost((void **)&data, nbytes));
+   else
+      data = malloc(nbytes);
+
+   void *ptr;
+   ERRCHECK(cudaMalloc((void **)&ptr, nbytes));
+
+   for (auto _ : state) {
+      auto start = Clock::now();
+      for (auto i = 0; i < repetitions; i++)
+        cudaMemcpy(data, ptr, nbytes, cudaMemcpyDeviceToHost);
+      auto end = Clock::now();
+
+      auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
+      state.SetIterationTime(elapsed_seconds.count());
+   }
+
+   state.counters["nbytes"] = nbytes;
+   state.counters["pinned"] = pinned ? 1 : 0;
+   cudaFreeHost(data);
+   cudaFree(ptr);
+}
+BENCHMARK(BM_DToH)
+   ->ArgsProduct({benchmark::CreateDenseRange(1, 33554432, /*multi=*/33554432/50), // Array size
+                  {1, 0},  // pinned, pageable
+   })
+   ->ArgsProduct({benchmark::CreateDenseRange(33554432, 268435456, /*multi=*/int(268435456-33554432)/10), // Array size
+                  {1, 0},  // pinned, pageable
+   })
+   ->UseManualTime()->Unit(benchmark::kMicrosecond);
+
+static void BM_HToD(benchmark::State &state)
+{
+   constexpr long long repetitions = 1;
+   auto nbytes = state.range(0);
+   bool pinned = state.range(1) == 1 ? true : false;
+
+   void *data;
+   if (pinned)
+      ERRCHECK(cudaMallocHost((void **)&data, nbytes));
+   else
+      data = malloc(nbytes);
+
+   void *ptr;
+   ERRCHECK(cudaMalloc((void **)&ptr, nbytes));
+
+   for (auto _ : state) {
+      auto start = Clock::now();
+      for (auto i = 0; i < repetitions; i++)
+        cudaMemcpy(ptr, data, nbytes, cudaMemcpyHostToDevice);
+      auto end = Clock::now();
+
+      auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
+      state.SetIterationTime(elapsed_seconds.count());
+   }
+
+   state.counters["nbytes"] = nbytes;
+   state.counters["pinned"] = pinned ? 1 : 0;
+   cudaFreeHost(data);
+   cudaFree(ptr);
+}
+BENCHMARK(BM_HToD)
+   ->ArgsProduct({benchmark::CreateDenseRange(1, 33554432, /*multi=*/33554432/50), // Array size
+                  {1, 0},  // pinned, pageable
+   })
+   ->ArgsProduct({benchmark::CreateDenseRange(33554432, 268435456, /*multi=*/int(268435456-33554432)/10), // Array size
+                  {1, 0},  // pinned, pageable
+   })
+   ->UseManualTime()->Unit(benchmark::kMicrosecond);
 
 BENCHMARK_MAIN();
 
