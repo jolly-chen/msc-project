@@ -79,8 +79,8 @@ BENCHMARK(BM_LinearSearch)
     ->Unit(benchmark::kMillisecond);
 
 
-// prun -np 1 -v likwid-pin -c  C0:0 ./cpu-microbenchmarks --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true --benchmark_format=json > das6-cpu/binsearch_cpu.json
-static void BM_BinarySearch(benchmark::State &state) {
+// prun -np 1 -v likwid-pin -c  C0:0 ./investigational_benchmarks --benchmark_filter=BM_BinarySearchCPU --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_perf_counters=INSTRUCTIONS,L1-dcache-load-misses,L1-dcache-loads,cache-misses,cache-references  --benchmark_counters_tabular=true --benchmark_format=json > das6/binsearch_cpu.json
+static void BM_BinarySearchCPU(benchmark::State &state) {
    long long bin;
    long long repetitions = 1000000;
    int nbins = state.range(0) / sizeof(double);  // Increasing histogram size
@@ -102,7 +102,7 @@ static void BM_BinarySearch(benchmark::State &state) {
    state.counters["val"] = val;
    state.counters["bin"] = bin;
 }
-BENCHMARK(BM_BinarySearch)
+BENCHMARK(BM_BinarySearchCPU)
    ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2),
                   {0, 1, 2, 3, 4}}) // Args only accepts integer, so this is a hacky way to get [0, 0.5, 1]
    ->Unit(benchmark::kMillisecond);
@@ -392,7 +392,7 @@ BENCHMARK(BM_TransformReduceGPU)
 
 static void BM_DToH(benchmark::State &state)
 {
-   constexpr long long repetitions = 1;
+   constexpr long long repetitions = 300;
    auto nbytes = state.range(0);
    bool pinned = state.range(1) == 1 ? true : false;
 
@@ -405,33 +405,50 @@ static void BM_DToH(benchmark::State &state)
    void *ptr;
    ERRCHECK(cudaMalloc((void **)&ptr, nbytes));
 
+   // Warmup
+   cudaMemcpy(data, ptr, nbytes, cudaMemcpyDeviceToHost);
+
+   cudaEvent_t start, stop;
+   cudaEventCreate(&start);
+   cudaEventCreate(&stop);
    for (auto _ : state) {
-      auto start = Clock::now();
+      // auto start = Clock::now();
+      cudaEventRecord(start);
       for (auto i = 0; i < repetitions; i++)
         cudaMemcpy(data, ptr, nbytes, cudaMemcpyDeviceToHost);
-      auto end = Clock::now();
+      cudaEventRecord(stop);
+      // auto end = Clock::now();
 
-      auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
-      state.SetIterationTime(elapsed_seconds.count());
+      cudaEventSynchronize(stop);
+      float elapsed_milliseconds;
+      cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
+      state.SetIterationTime(elapsed_milliseconds/1e3);
+
+      // auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
+      // state.SetIterationTime(elapsed_seconds.count());
    }
 
    state.counters["nbytes"] = nbytes;
    state.counters["pinned"] = pinned ? 1 : 0;
+   state.counters["repetitions"] = repetitions;
    cudaFreeHost(data);
    cudaFree(ptr);
+   ERRCHECK(cudaEventDestroy(start));
+   ERRCHECK(cudaEventDestroy(stop));
 }
 BENCHMARK(BM_DToH)
-   ->ArgsProduct({benchmark::CreateDenseRange(1, 33554432, /*multi=*/33554432/50), // Array size
+   ->ArgsProduct({benchmark::CreateRange(1, 33554432, /*multi=*/2), // Array size
                   {1, 0},  // pinned, pageable
    })
-   ->ArgsProduct({benchmark::CreateDenseRange(33554432, 268435456, /*multi=*/int(268435456-33554432)/10), // Array size
+   ->ArgsProduct({benchmark::CreateDenseRange(33554432, 268435456, /*step=*/int(268435456-33554432)/10), // Array size
                   {1, 0},  // pinned, pageable
    })
+   ->MinTime(1e-3) // repeat until at least a millisecond since the resolution of cudaEventRecord is 0.5 us
    ->UseManualTime()->Unit(benchmark::kMicrosecond);
 
 static void BM_HToD(benchmark::State &state)
 {
-   constexpr long long repetitions = 1;
+   constexpr long long repetitions = 300;
    auto nbytes = state.range(0);
    bool pinned = state.range(1) == 1 ? true : false;
 
@@ -444,28 +461,45 @@ static void BM_HToD(benchmark::State &state)
    void *ptr;
    ERRCHECK(cudaMalloc((void **)&ptr, nbytes));
 
+   // Warmup
+   cudaMemcpy(ptr, data, nbytes, cudaMemcpyHostToDevice);
+
+   cudaEvent_t start, stop;
+   cudaEventCreate(&start);
+   cudaEventCreate(&stop);
    for (auto _ : state) {
-      auto start = Clock::now();
+      cudaEventRecord(start);
+      // auto start = Clock::now();
       for (auto i = 0; i < repetitions; i++)
         cudaMemcpy(ptr, data, nbytes, cudaMemcpyHostToDevice);
-      auto end = Clock::now();
+      cudaEventRecord(stop);
+      // auto end = Clock::now();
 
-      auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
-      state.SetIterationTime(elapsed_seconds.count());
+      cudaEventSynchronize(stop);
+      float elapsed_milliseconds;
+      cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
+      state.SetIterationTime(elapsed_milliseconds/1e3);
+
+      // auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
+      // state.SetIterationTime(elapsed_seconds.count());
    }
 
    state.counters["nbytes"] = nbytes;
    state.counters["pinned"] = pinned ? 1 : 0;
+   state.counters["repetitions"] = repetitions;
    cudaFreeHost(data);
    cudaFree(ptr);
+   ERRCHECK(cudaEventDestroy(start));
+   ERRCHECK(cudaEventDestroy(stop));
 }
 BENCHMARK(BM_HToD)
-   ->ArgsProduct({benchmark::CreateDenseRange(1, 33554432, /*multi=*/33554432/50), // Array size
+   ->ArgsProduct({benchmark::CreateRange(1, 33554432, /*multi=*/2), // Array size
                   {1, 0},  // pinned, pageable
    })
-   ->ArgsProduct({benchmark::CreateDenseRange(33554432, 268435456, /*multi=*/int(268435456-33554432)/10), // Array size
+   ->ArgsProduct({benchmark::CreateDenseRange(33554432, 268435456, /*step=*/int(268435456-33554432)/10), // Array size
                   {1, 0},  // pinned, pageable
    })
+   ->MinTime(1e-3) // repeat until at least a millisecond since the resolution of cudaEventRecord is 0.5 us
    ->UseManualTime()->Unit(benchmark::kMicrosecond);
 
 BENCHMARK_MAIN();
