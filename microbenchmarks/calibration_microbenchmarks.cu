@@ -79,6 +79,7 @@ BENCHMARK(BM_UpdateStats)
 
 //
 // GPU
+// prun -np 1 -v -native '-C gpunode,A4000 --gres=gpu:1' calibration_microbenchmarks --benchmark_filter=GPU --benchmark_repetitions=3 --benchmark_report_aggregates_only=yes --benchmark_counters_tabular=true  --benchmark_format=json > das6/gpu_calibration.json
 //
 
 static void BM_BinarySearchGPU(benchmark::State &state) {
@@ -131,7 +132,7 @@ static void BM_BinarySearchGPU(benchmark::State &state) {
    ERRCHECK(cudaEventDestroy(start));
    ERRCHECK(cudaEventDestroy(stop));
 }
-BENCHMARK(BM_BinarySearchGPURandom)
+BENCHMARK(BM_BinarySearchGPU)
    ->ArgsProduct({benchmark::CreateRange(8, 268435456, /*multi=*/2), // Array size
                   benchmark::CreateRange(32, 262144, /*multi=*/4), // Bulksize
    })
@@ -213,6 +214,7 @@ static void BM_HistogramGPU(benchmark::State &state) {
    state.counters["nbins"] = nbins;
    state.counters["bulksize"] = bulkSize;
    state.counters["numblocks"] = numBlocks;
+   state.counters["global"] = global ? 1 : 0;
    ERRCHECK(cudaFree(d_histogram));
    ERRCHECK(cudaFree(d_coords));
    ERRCHECK(cudaFree(d_weights));
@@ -282,5 +284,61 @@ BENCHMARK(BM_TransformReduceGPU)
    ->Unit(benchmark::kMicrosecond)
    ->UseManualTime()
    ->MinTime(1e-3); // repeat until at least a millisecond since the resolution of cudaEventRecord is 0.5 us
+
+static void BM_MemcpyCPUToGPU(benchmark::State &state)
+{
+   constexpr long long repetitions = 300;
+   auto nbytes = state.range(0);
+   bool pinned = state.range(1) == 1 ? true : false;
+
+   void *data;
+   if (pinned)
+      ERRCHECK(cudaMallocHost((void **)&data, nbytes));
+   else
+      data = malloc(nbytes);
+
+   void *ptr;
+   ERRCHECK(cudaMalloc((void **)&ptr, nbytes));
+
+   // Warmup
+   cudaMemcpy(ptr, data, nbytes, cudaMemcpyHostToDevice);
+
+   cudaEvent_t start, stop;
+   cudaEventCreate(&start);
+   cudaEventCreate(&stop);
+   for (auto _ : state) {
+      cudaEventRecord(start);
+      // auto start = Clock::now();
+      for (auto i = 0; i < repetitions; i++)
+        cudaMemcpy(ptr, data, nbytes, cudaMemcpyHostToDevice);
+      cudaEventRecord(stop);
+      // auto end = Clock::now();
+
+      cudaEventSynchronize(stop);
+      float elapsed_milliseconds;
+      cudaEventElapsedTime(&elapsed_milliseconds, start, stop);
+      state.SetIterationTime(elapsed_milliseconds/1e3);
+
+      // auto elapsed_seconds = std::chrono::duration_cast<fsecs>(end - start);
+      // state.SetIterationTime(elapsed_seconds.count());
+   }
+
+   state.counters["nbytes"] = nbytes;
+   state.counters["pinned"] = pinned ? 1 : 0;
+   state.counters["repetitions"] = repetitions;
+   cudaFreeHost(data);
+   cudaFree(ptr);
+   ERRCHECK(cudaEventDestroy(start));
+   ERRCHECK(cudaEventDestroy(stop));
+}
+BENCHMARK(BM_MemcpyCPUToGPU)
+   ->ArgsProduct({benchmark::CreateRange(1, 33554432, /*multi=*/2), // Array size
+                  {1, 0},  // pinned, pageable
+   })
+   ->ArgsProduct({benchmark::CreateDenseRange(33554432, 268435456, /*step=*/int(268435456-33554432)/10), // Array size
+                  {1, 0},  // pinned, pageable
+   })
+   ->MinTime(1e-3) // repeat until at least a millisecond since the resolution of cudaEventRecord is 0.5 us
+   ->UseManualTime()->Unit(benchmark::kMicrosecond);
 
 BENCHMARK_MAIN();
